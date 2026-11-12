@@ -1,5 +1,5 @@
 import { type Screen, h } from '../lib/dom';
-import { backButton } from './detail';
+import { backButton, topbar } from './chrome';
 
 const li = (...items: (string | Node)[]) => items.map((i) => h('li', {}, i));
 
@@ -7,7 +7,7 @@ export function safetyScreen(): Screen {
   const el = h(
     'main',
     { class: 'app safety' },
-    h('header', { class: 'topbar' }, backButton(), h('h1', { tabindex: '-1' }, 'Safety & back care')),
+    topbar('Safety & back care'),
     h(
       'section',
       { class: 'warn', role: 'note' },
@@ -52,7 +52,7 @@ export function safetyScreen(): Screen {
       h('h2', {}, 'Avoid these'),
       h('ul', {}, ...li('Sit-ups and crunches.', 'Russian twists.', 'Bent-over rows without a hand supported.', 'Any twisting while holding a weight.')),
     ),
-    backButton('‹ Back to home'),
+    backButton('Back to home'),
   );
   el.lastElementChild!.classList.add('btn-block');
   return { el, title: 'Safety & back care' };

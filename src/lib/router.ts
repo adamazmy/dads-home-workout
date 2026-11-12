@@ -10,13 +10,22 @@ export type Route =
   | { name: 'home' }
   | { name: 'exercise'; id: string }
   | { name: 'workout' }
-  | { name: 'safety' };
+  | { name: 'safety' }
+  | { name: 'week' }
+  | { name: 'progress' }
+  | { name: 'settings' };
+
+/** Top-level tabs of the bottom bar. */
+export const TABS = ['home', 'week', 'progress'] as const;
 
 export function parse(hash: string): Route {
   const parts = hash.replace(/^#\/?/, '').split('/');
   if (parts[0] === 'exercise' && parts[1]) return { name: 'exercise', id: decodeURIComponent(parts[1]) };
   if (parts[0] === 'workout') return { name: 'workout' };
   if (parts[0] === 'safety') return { name: 'safety' };
+  if (parts[0] === 'week') return { name: 'week' };
+  if (parts[0] === 'progress') return { name: 'progress' };
+  if (parts[0] === 'settings') return { name: 'settings' };
   return { name: 'home' };
 }
 
@@ -27,7 +36,10 @@ export function href(route: Route): string {
     case 'workout':
       return '#/workout';
     case 'safety':
-      return '#/safety';
+    case 'week':
+    case 'progress':
+    case 'settings':
+      return `#/${route.name}`;
     default:
       return '#/';
   }
@@ -35,9 +47,21 @@ export function href(route: Route): string {
 
 let onRouteCb: (r: Route) => void = () => undefined;
 
-export function navigate(route: Route): void {
-  history.pushState({ inApp: true }, '', href(route));
+export function navigate(route: Route, opts: { replace?: boolean } = {}): void {
+  if (opts.replace) history.replaceState(history.state, '', href(route));
+  else history.pushState({ inApp: true }, '', href(route));
   onRouteCb(route);
+}
+
+/**
+ * Bottom-bar tabs sit one level above Home, so the Android back button from
+ * any tab returns to Home and a second back leaves the app.
+ */
+export function goTab(tab: (typeof TABS)[number]): void {
+  const current = parse(location.hash).name;
+  if (tab === current) return;
+  if (tab === 'home') return back();
+  navigate({ name: tab }, { replace: current !== 'home' && (TABS as readonly string[]).includes(current) });
 }
 
 /** Go back one screen; if there is nothing in-app to go back to, go Home. */

@@ -1,12 +1,9 @@
 import { EXERCISES, type ExerciseId, REST_SECONDS } from '../data/exercises';
 import { type Screen, h } from '../lib/dom';
-import { back } from '../lib/router';
+import { icon } from '../lib/icons';
 import { load, save } from '../lib/storage';
+import { backButton, topbar } from './chrome';
 import { createStage } from './stage';
-
-export function backButton(label = '‹ Back'): HTMLButtonElement {
-  return h('button', { class: 'btn back-btn', type: 'button', onclick: () => back() }, label);
-}
 
 function flagCard(id: ExerciseId): HTMLElement | null {
   const ex = EXERCISES[id];
@@ -25,7 +22,7 @@ function flagCard(id: ExerciseId): HTMLElement | null {
     sync();
   });
   sync();
-  return h('section', { class: 'warn', role: 'note' }, h('h2', {}, `⚠ ${ex.flag.text}`), alt ? status : null, alt ? toggle : null);
+  return h('section', { class: 'warn', role: 'note' }, h('h2', {}, icon('warning', 26), ex.flag.text), alt ? status : null, alt ? toggle : null);
 }
 
 export function detailScreen(id: string): Screen | null {
@@ -36,7 +33,7 @@ export function detailScreen(id: string): Screen | null {
   const el = h(
     'main',
     { class: 'app' },
-    h('header', { class: 'topbar' }, backButton(), h('h1', { tabindex: '-1' }, ex.name)),
+    topbar(ex.name),
     flagCard(ex.id),
     stage.el,
     h(
@@ -64,7 +61,7 @@ export function detailScreen(id: string): Screen | null {
       h('h2', { id: 'easy-h' }, 'Easier option'),
       h('p', { style: 'margin:0' }, ex.easier),
     ),
-    backButton('‹ Back'),
+    backButton('Back'),
   );
   el.lastElementChild!.classList.add('btn-block');
   return { el, title: ex.name, destroy: () => stage.player.destroy() };

@@ -8,7 +8,7 @@ export function iconSvg({ size = 512, pad = 0.12, rounded = true } = {}) {
   const inner = `
     <g transform="translate(${s / 2} ${s / 2}) scale(${k}) translate(${-s / 2} ${-s / 2})">
       <g fill="none" stroke="#ffffff" stroke-width="30" stroke-linecap="round" stroke-linejoin="round">
-        <circle cx="256" cy="120" r="44" fill="#0b6b4c"/>
+        <circle cx="256" cy="120" r="44" fill="#2f5d46"/>
         
         <path d="M160 88 L178 196 L226 206"/>
         <path d="M352 88 L334 196 L286 206"/>
@@ -24,6 +24,6 @@ export function iconSvg({ size = 512, pad = 0.12, rounded = true } = {}) {
       </g>
     </g>`;
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 ${s} ${s}">
-  <rect width="${s}" height="${s}" ${rounded ? 'rx="96"' : ''} fill="#0b6b4c"/>${inner}
+  <rect width="${s}" height="${s}" ${rounded ? 'rx="96"' : ''} fill="#2f5d46"/>${inner}
 </svg>`;
 }

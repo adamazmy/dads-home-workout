@@ -149,3 +149,29 @@ test('PWA: manifest, service worker and Chrome installability', async ({ page, b
   await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
   await page.context().setOffline(false);
 });
+
+test('bottom tabs: This Week and Progress; Android back returns to Workouts', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: 'This Week' }).click();
+  await expect(page.getByRole('heading', { name: 'This Week', level: 1 })).toBeVisible();
+  await shot(page, 'tab-week');
+  await page.getByRole('button', { name: 'Progress' }).click();
+  await expect(page.getByRole('heading', { name: 'Progress', level: 1 })).toBeVisible();
+  await expect(page.getByText('No workouts yet')).toBeVisible();
+  await shot(page, 'tab-progress');
+  // Tabs replace each other, so one back press lands on Home.
+  await page.goBack();
+  await expect(page.getByRole('heading', { name: 'Workout A', level: 1 })).toBeVisible();
+});
+
+test('settings: theme and RDL swap are remembered', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Settings' }).click();
+  await page.getByRole('button', { name: 'Dark' }).click();
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
+  await page.getByRole('button', { name: 'Step-ups' }).click();
+  await shot(page, 'settings');
+  await page.reload();
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
+  await expect(page.getByRole('button', { name: 'Step-ups' })).toHaveAttribute('aria-pressed', 'true');
+});

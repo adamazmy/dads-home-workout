@@ -1,6 +1,7 @@
 import { Player } from '../anim/player';
 import type { Exercise } from '../data/exercises';
 import { h, reducedMotion } from '../lib/dom';
+import { icon } from '../lib/icons';
 
 export interface Stage {
   el: HTMLElement;
@@ -18,7 +19,7 @@ export function createStage(ex: Exercise): Stage {
 
   const playBtn = h('button', { class: 'btn', type: 'button' });
   const syncPlay = () => {
-    playBtn.textContent = player.isPlaying ? '❚❚ Pause' : '▶ Play';
+    playBtn.replaceChildren(icon(player.isPlaying ? 'pause' : 'play', 20), player.isPlaying ? 'Pause' : 'Play');
     playBtn.setAttribute('aria-label', player.isPlaying ? 'Pause animation' : 'Play animation');
   };
   playBtn.addEventListener('click', () => {

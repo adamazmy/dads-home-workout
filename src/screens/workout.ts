@@ -1,6 +1,7 @@
 import { type Exercise, REST_SECONDS, type WorkoutId } from '../data/exercises';
 import { restOver, unlockAudio } from '../lib/alerts';
 import { type Screen, h } from '../lib/dom';
+import { icon } from '../lib/icons';
 import { workoutExercises } from '../lib/plan';
 import { back, navigate } from '../lib/router';
 import { type Progress, finishWorkout, load, save } from '../lib/storage';
@@ -58,7 +59,7 @@ export function workoutScreen(): Screen {
       stage.el,
       h('p', { class: 'set-count' }, `Set ${pos.set} of ${ex.sets}`),
       h('p', { class: 'set-dose' }, ex.dose),
-      h('button', { class: 'btn btn-primary btn-big', type: 'button', onclick: setDone }, '✓ Set done'),
+      h('button', { class: 'btn btn-primary btn-big', type: 'button', onclick: setDone }, icon('check', 32), 'Set done'),
       h(
         'div',
         { class: 'row', style: 'margin-top:12px' },
@@ -138,7 +139,7 @@ export function workoutScreen(): Screen {
       h(
         'div',
         { class: 'done-screen' },
-        h('p', { class: 'big', 'aria-hidden': 'true' }, '✓'),
+        h('p', { class: 'big', 'aria-hidden': 'true' }, icon('checkCircle', 96)),
         h('h2', { tabindex: '-1' }, 'Done – go for a walk later.'),
         h('p', {}, 'Well done. Next time: Workout ' + (workout === 'A' ? 'B' : 'A') + '.'),
         h('button', { class: 'btn btn-primary btn-big', type: 'button', onclick: () => back() }, 'Back to home'),
@@ -153,7 +154,7 @@ export function workoutScreen(): Screen {
     h(
       'header',
       { class: 'topbar' },
-      h('button', { class: 'btn back-btn', type: 'button', onclick: () => back(), 'aria-label': 'Leave workout (progress is saved)' }, '✕ Leave'),
+      h('button', { class: 'btn back-btn', type: 'button', onclick: () => back(), 'aria-label': 'Leave workout (progress is saved)' }, icon('close', 22), 'Leave'),
       h('h1', {}, `Workout ${workout}`),
     ),
     h('div', { class: 'progress', role: 'presentation' }, bar),

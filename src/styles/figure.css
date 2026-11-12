@@ -18,3 +18,14 @@ svg.figure .far { opacity: 0.38; }
 svg.figure .bell .plate { fill: var(--bell); }
 svg.figure .bell .hub { fill: var(--surface); }
 svg.figure .bell .handle { stroke: var(--bell); stroke-width: 3; }
+
+/* Hero landscape figure: a dark silhouette on the hill. */
+svg.figure.silhouette { overflow: visible; }
+svg.figure.silhouette .floor { display: none; }
+svg.figure.silhouette .step { fill: #1d3a2d; stroke: none; }
+svg.figure.silhouette .limb { stroke: #10241a; stroke-width: 10; }
+svg.figure.silhouette .torso { stroke: #10241a; stroke-width: 15; }
+svg.figure.silhouette .foot,
+svg.figure.silhouette .hand { fill: #10241a; stroke: #10241a; }
+svg.figure.silhouette .head { fill: #10241a; stroke: #10241a; }
+svg.figure.silhouette .far { opacity: 0.8; }

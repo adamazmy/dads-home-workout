@@ -1,43 +1,39 @@
 import type { Player } from '../anim/player';
-import { WALK_TEXT, WORKOUTS, WORKOUT_DAYS, type WorkoutId } from '../data/exercises';
+import { WALK_TEXT, WORKOUTS, type WorkoutId } from '../data/exercises';
 import { unlockAudio } from '../lib/alerts';
 import { type Screen, h } from '../lib/dom';
+import { icon } from '../lib/icons';
 import { estimateMinutes, workoutExercises } from '../lib/plan';
 import { href, navigate } from '../lib/router';
-import { load, localDate, save } from '../lib/storage';
+import { load, save } from '../lib/storage';
+import { cardTitle, heroArt, tabBar, weekDays } from './chrome';
 import { createThumb } from './stage';
 
-const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+function greeting(now = new Date()): string {
+  const hr = now.getHours();
+  return hr < 12 ? 'Good morning' : hr < 18 ? 'Good afternoon' : 'Good evening';
+}
 
-function weekStrip(): HTMLElement {
-  const { history } = load();
-  const done = new Set(history.map((x) => x.date));
-  const today = new Date();
-  const monday = new Date(today);
-  monday.setDate(today.getDate() - ((today.getDay() + 6) % 7));
-
-  const items = DAYS.map((name, i) => {
-    const d = new Date(monday);
-    d.setDate(monday.getDate() + i);
-    const iso = localDate(d);
-    const isWorkout = WORKOUT_DAYS.includes(i);
-    const isToday = iso === localDate(today);
-    const isDone = done.has(iso);
-    const what = isDone ? '✓' : isWorkout ? 'Lift' : 'Walk';
-    const label = `${name}${isToday ? ' (today)' : ''}: ${isWorkout ? 'workout' : WALK_TEXT}${isDone ? ', done' : ''}`;
+export function weekCard(): HTMLElement {
+  const items = weekDays().map((d) => {
+    // A workout counts whichever day it was done on.
+    const done = d.workoutDone !== null || (!d.isWorkout && d.walkDone);
+    const what = done ? 'Done' : d.isWorkout ? 'Lift' : 'Walk';
+    const label = `${d.name}${d.isToday ? ' (today)' : ''}: ${d.isWorkout ? 'workout' : WALK_TEXT}${done ? ', done' : ''}`;
     return h(
       'li',
-      { class: `day${isToday ? ' today' : ''}${isDone ? ' done' : ''}`, 'aria-label': label },
-      h('b', { 'aria-hidden': 'true' }, name),
+      { class: `day${d.isToday ? ' today' : ''}${done ? ' done' : ''}`, 'aria-label': label },
+      h('b', { 'aria-hidden': 'true' }, d.name),
       h('span', { class: 'what', 'aria-hidden': 'true' }, what),
+      icon(done ? 'checkCircle' : d.isWorkout ? 'dumbbell' : 'walk', 24),
     );
   });
   return h(
     'section',
     { class: 'card', 'aria-labelledby': 'week-h' },
-    h('h2', { id: 'week-h' }, 'This week'),
+    cardTitle('calendar', 'This Week', 'week-h'),
     h('ul', { class: 'week' }, ...items),
-    h('p', { class: 'legend' }, `Lift = workout (alternate A and B). Walk = ${WALK_TEXT.toLowerCase()}.`),
+    h('p', { class: 'legend' }, icon('info', 22), `Lift = workout (alternate A and B). Walk = ${WALK_TEXT.toLowerCase()}.`),
   );
 }
 
@@ -57,7 +53,7 @@ export function homeScreen(): Screen {
   const resume = state.progress
     ? h(
         'section',
-        { class: 'card warn', 'aria-labelledby': 'resume-h' },
+        { class: 'warn', 'aria-labelledby': 'resume-h' },
         h('h2', { id: 'resume-h' }, `Workout ${state.progress.workout} not finished`),
         h('p', {}, `You stopped at exercise ${state.progress.index + 1} of ${WORKOUTS[state.progress.workout].exercises.length}.`),
         h(
@@ -70,6 +66,7 @@ export function homeScreen(): Screen {
               navigate({ name: 'workout' });
             },
           },
+          icon('play', 22),
           'Carry on',
         ),
       )
@@ -77,22 +74,33 @@ export function homeScreen(): Screen {
 
   const hero = h(
     'section',
-    { class: 'card hero', 'aria-labelledby': 'next-h' },
-    h('p', { class: 'kicker' }, 'Next workout'),
+    { class: 'hero', 'aria-labelledby': 'next-h' },
+    heroArt(),
     h('h1', { id: 'next-h' }, WORKOUTS[nextId].name),
-    h('p', { class: 'meta' }, `${list.length} exercises · about ${estimateMinutes(list)} minutes`),
-    h('button', { class: 'btn btn-primary btn-big', type: 'button', onclick: start }, `Start ${WORKOUTS[nextId].name}`),
     h(
-      'button',
-      {
-        class: 'link-btn',
-        type: 'button',
-        onclick: () => {
-          save({ next: other, progress: null });
-          dispatchEvent(new Event('app:refresh'));
+      'p',
+      { class: 'hero-meta' },
+      h('span', {}, icon('dumbbell', 26), `${list.length} exercises`),
+      h('span', { class: 'divider', 'aria-hidden': 'true' }),
+      h('span', {}, icon('clock', 24), `About ${estimateMinutes(list)} minutes`),
+    ),
+    h(
+      'div',
+      { class: 'hero-actions' },
+      h('button', { class: 'btn btn-cream', type: 'button', onclick: start }, icon('play', 26), `Start ${WORKOUTS[nextId].name}`),
+      h(
+        'button',
+        {
+          class: 'btn btn-ghost-light',
+          type: 'button',
+          onclick: () => {
+            save({ next: other, progress: null });
+            dispatchEvent(new Event('app:refresh'));
+          },
         },
-      },
-      `Do ${WORKOUTS[other].name} instead`,
+        icon('swap', 24),
+        `Do ${WORKOUTS[other].name} instead`,
+      ),
     ),
   );
 
@@ -111,9 +119,9 @@ export function homeScreen(): Screen {
           {},
           h('span', { class: 'name' }, ex.name),
           h('span', { class: 'dose' }, `${ex.sets} × ${ex.dose}`),
-          ex.flag ? h('span', { class: 'flag' }, '⚠ Ask physio first') : null,
+          ex.flag ? h('span', { class: 'flag' }, icon('warning', 16), 'Ask physio first') : null,
         ),
-        h('span', { class: 'chev', 'aria-hidden': 'true' }, '›'),
+        h('span', { class: 'chev' }, icon('chevronRight', 26)),
       ),
     );
   });
@@ -126,37 +134,79 @@ export function homeScreen(): Screen {
     navigate({ name: 'exercise', id: a.dataset.ex! });
   });
 
-  const el = h(
-    'main',
-    { class: 'app' },
-    h('header', { class: 'topbar' }, h('p', { class: 'kicker', style: 'margin:0' }, "Dad's Home Workout")),
-    resume,
-    hero,
-    weekStrip(),
+  const beforeStart = h(
+    'section',
+    { class: 'card', 'aria-labelledby': 'before-h' },
+    cardTitle('shield', 'Before You Start', 'before-h'),
     h(
-      'section',
-      { 'aria-labelledby': 'list-h', class: 'stack' },
-      h('h2', { id: 'list-h' }, `${WORKOUTS[nextId].name} – the exercises`),
-      listEl,
-    ),
-    h(
-      'nav',
-      { class: 'footer-nav card' },
-      h('h2', {}, 'Before you start'),
-      h('p', {}, 'Warm-up, breathing, and when to stop.'),
-      h(
-        'a',
-        {
-          class: 'btn btn-block',
-          href: href({ name: 'safety' }),
-          onclick: (e: Event) => {
-            e.preventDefault();
-            navigate({ name: 'safety' });
-          },
-        },
-        '🛡 Safety & back care',
+      'ul',
+      { class: 'checklist' },
+      ...['Warm up for 5–10 minutes', 'Breathe out on the effort – never hold your breath', 'Stop if anything feels sharp or painful'].map((t) =>
+        h('li', {}, icon('checkCircle', 26), t),
       ),
     ),
+    h(
+      'a',
+      {
+        class: 'btn btn-block',
+        href: href({ name: 'safety' }),
+        onclick: (e: Event) => {
+          e.preventDefault();
+          navigate({ name: 'safety' });
+        },
+      },
+      'Safety & back care',
+    ),
+  );
+
+  const first = list[0]!;
+  const demo = createThumb(first);
+  players.push(demo.player);
+  const howTo = h(
+    'a',
+    {
+      class: 'card howto',
+      href: href({ name: 'exercise', id: first.id }),
+      onclick: (e: Event) => {
+        e.preventDefault();
+        navigate({ name: 'exercise', id: first.id });
+      },
+    },
+    h('div', { class: 'howto-stage' }, demo.el, h('span', { class: 'play-badge', 'aria-hidden': 'true' }, icon('play', 30))),
+    h('h2', {}, 'How to do the exercises'),
+    h('p', { class: 'meta', style: 'margin:0 4px' }, 'Slow animated demos, step by step.'),
+  );
+  demo.el.classList.remove('thumb');
+
+  const el = h(
+    'main',
+    { class: 'app wide has-tabbar' },
+    h(
+      'header',
+      { class: 'greeting' },
+      h('span', { class: 'wave', 'aria-hidden': 'true' }, '💪'),
+      h('div', {}, h('p', { class: 'hello' }, greeting()), h('p', {}, 'Ready for your workout?')),
+      h(
+        'button',
+        { class: 'icon-btn', type: 'button', 'aria-label': 'Settings', onclick: () => navigate({ name: 'settings' }) },
+        icon('gear', 28),
+      ),
+    ),
+    resume,
+    hero,
+    weekCard(),
+    h(
+      'div',
+      { class: 'home-grid' },
+      h(
+        'section',
+        { 'aria-labelledby': 'list-h' },
+        h('h2', { id: 'list-h', class: 'section-title' }, `${WORKOUTS[nextId].name} – The Exercises`),
+        listEl,
+      ),
+      h('aside', {}, beforeStart, howTo),
+    ),
+    tabBar('home'),
   );
 
   return { el, title: "Dad's Home Workout", destroy: () => players.forEach((p) => p.destroy()) };
