@@ -1,0 +1,20 @@
+/* Stick-figure drawing. Colours come from theme tokens in app.css. */
+svg.figure {
+  display: block;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+}
+svg.figure .floor { stroke: var(--floor); stroke-width: 1.6; }
+svg.figure .prop { fill: none; stroke: var(--prop); stroke-width: 3.2; stroke-linecap: round; stroke-linejoin: round; }
+svg.figure .mat { fill: var(--mat); }
+svg.figure .step { fill: var(--mat); stroke: var(--prop); stroke-width: 1.6; }
+svg.figure .limb { fill: none; stroke: var(--fig); stroke-width: 4.6; stroke-linecap: round; stroke-linejoin: round; }
+svg.figure .foot { fill: var(--fig); stroke: var(--fig); stroke-width: 2.4; stroke-linejoin: round; }
+svg.figure .hand { fill: var(--fig); }
+svg.figure .torso { stroke: var(--accent); stroke-width: 7; stroke-linecap: round; }
+svg.figure .head { fill: var(--surface); stroke: var(--fig); stroke-width: 3.6; }
+svg.figure .far { opacity: 0.38; }
+svg.figure .bell .plate { fill: var(--bell); }
+svg.figure .bell .hub { fill: var(--surface); }
+svg.figure .bell .handle { stroke: var(--bell); stroke-width: 3; }

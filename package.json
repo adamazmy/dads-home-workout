@@ -1,0 +1,26 @@
+{
+  "name": "dads-home-workout",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview --host",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:e2e": "playwright test",
+    "poses": "playwright test -c playwright.poses.config.ts",
+    "icons": "node scripts/gen-icons.mjs",
+    "lighthouse": "node scripts/lighthouse.mjs"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.65.0",
+    "chrome-launcher": "^1.2.3",
+    "lighthouse": "^13.6.0",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.8",
+    "vite-plugin-pwa": "^2.0.0",
+    "vitest": "^5.1.0"
+  }
+}
