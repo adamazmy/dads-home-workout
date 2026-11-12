@@ -1,6 +1,6 @@
 import './styles/app.css';
 import { type Screen } from './lib/dom';
-import { registerServiceWorker } from './lib/pwa';
+import { applyPendingUpdate, registerServiceWorker } from './lib/pwa';
 import { applyTheme } from './lib/storage';
 import { type Route, start } from './lib/router';
 import { detailScreen } from './screens/detail';
@@ -36,6 +36,8 @@ function build(route: Route): Screen {
 
 function render(route: Route): void {
   currentRoute = route;
+  // A new version that arrived during a workout is applied as soon as the workout is left.
+  if (applyPendingUpdate()) return;
   current?.destroy?.();
   current = build(route);
   root.replaceChildren(current.el);
@@ -48,4 +50,4 @@ function render(route: Route): void {
 addEventListener('app:refresh', () => render(currentRoute));
 applyTheme();
 start(render);
-registerServiceWorker();
+registerServiceWorker({ isWorkoutActive: () => currentRoute.name === 'workout' });

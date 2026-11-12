@@ -19,6 +19,7 @@ jobs:
       - run: npm test
       - run: npm run poses
       - run: npm run test:e2e
+      - run: npm run test:update
       - uses: actions/upload-artifact@v4
         if: always()
         with:

@@ -40,6 +40,11 @@ export default defineConfig({
         globPatterns: ['**/*.{js,css,html,svg,png,webmanifest,woff2}'],
         navigateFallback: 'index.html',
         cleanupOutdatedCaches: true,
+        // A new version must take over at once: an installed app on Android is
+        // resumed, never fully closed, so a "waiting" worker would wait forever.
+        // src/lib/pwa.ts then reloads the page (but never mid-workout).
+        skipWaiting: true,
+        clientsClaim: true,
       },
     }),
   ],

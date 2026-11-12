@@ -12,7 +12,8 @@
     "test:e2e": "playwright test",
     "poses": "playwright test -c playwright.poses.config.ts",
     "icons": "node scripts/gen-icons.mjs",
-    "lighthouse": "node scripts/lighthouse.mjs"
+    "lighthouse": "node scripts/lighthouse.mjs",
+    "test:update": "playwright test -c playwright.update.config.ts"
   },
   "devDependencies": {
     "@playwright/test": "^1.65.0",
