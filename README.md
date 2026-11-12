@@ -1,6 +1,8 @@
 # Dad's Home Workout
 
-A mobile-first, installable web app for a gentle, back-friendly home routine with two 10 kg dumbbells.
+A mobile-first, installable web app for gentle, back-friendly strength training at home or at the gym.
+Each day he picks Home or Gym and a focus; the app builds a 5–6 exercise workout from a library of 31
+animated exercises, with built-in back guardrails.
 Vite + vanilla TypeScript, no framework, no backend, no login. Works offline once installed.
 
 ## Commands (all cross-platform; Windows works out of the box)
@@ -12,11 +14,12 @@ Vite + vanilla TypeScript, no framework, no backend, no login. Works offline onc
 | `npm test` | Unit tests: engine maths + anatomy check of every exercise (240 samples per loop) |
 | `npm run poses` | Pose check: screenshots every keyframe + mid-transition of every exercise into `reports/poses-light.png` / `poses-dark.png`; red cells = anatomy problems |
 | `npm run test:e2e` | Playwright on Pixel 7 (412 px), 375 px and desktop Chrome, light + dark; screenshots to `reports/screens/` |
+| `npm run test:update` | Simulates a new deploy reaching an installed (resumed) app, never mid-workout |
 | `npm run build` / `npm run preview` | Production build / serve it on your LAN |
 | `npm run lighthouse` | Lighthouse (mobile) + Chrome's installability check, after `npm run build`. Report: `reports/lighthouse.html` |
 | `npm run icons` | Re-renders the PNG icons from `scripts/icon.svg.mjs` |
 
-Tip: `ONLY=bridge npm run poses` (PowerShell: `$env:ONLY='bridge'; npm run poses`) renders one exercise large.
+Tip: `ONLY=bridge,legPress npm run poses` (PowerShell: `$env:ONLY='bridge,legPress'; npm run poses`) renders those exercises large.
 In dev, `http://localhost:5173/debug.html` shows the same grid live.
 
 ## Deploying (GitHub Pages)
@@ -42,16 +45,39 @@ src/
     player.ts              one shared rAF loop, play/pause, speed, pauses off-screen
     checks.ts              anatomical limits used by the tests and the pose grid
   data/
-    exercises.ts           ← ALL exercise text, sets/reps, workouts A/B, schedule (edit here)
-    animations.ts          ← pose data for every animation
-  lib/                     router (Android back), storage, wake lock, beep/vibrate, PWA
-  screens/                 home, detail, workout, safety, animation stage
+    exercises.ts           ← THE EXERCISE LIBRARY: text, tags (group, home/gym, equipment,
+                             back load), sets/reps/rest – edit here
+    animations.ts          ← pose data (original exercises)
+    animations-library.ts  ← pose data (benches, machines, cables)
+  lib/
+    generator.ts           builds today's workout + back guardrails (pure, unit-tested)
+    storage.ts             validated state, workout log, A/B migration, export/import
+    router.ts, wakelock.ts, alerts.ts, pwa.ts
+  screens/                 home, choose, workout (warm-up first), detail, library,
+                           week, history, settings, safety
   styles/                  tokens (light/dark), figure styles
 tests/unit                 Vitest
 tests/poses                pose-grid screenshot check
 tests/e2e                  Playwright app tests
 scripts/                   icon generation, Lighthouse
 ```
+
+## Exercise library & workout builder
+
+Each exercise in `src/data/exercises.ts` is tagged with its muscle group (Legs & glutes, Chest,
+Upper back, Shoulders, Arms, Core & lower back), where it can be done (`home`, `gym`, `both`),
+the equipment it needs, its back load (`low` / `moderate` / `high`), sets, reps and rest.
+
+`src/lib/generator.ts` builds the workout and enforces the guardrails:
+
+- at most **one high back-load** exercise per session;
+- no high back-load exercise within **48 hours** of the last one (greyed out, with the reason);
+- exercises flagged "check with your physio" (RDL, back extension) are **never picked automatically** –
+  only when swapped in on purpose;
+- about **6 exercises** at most; every workout starts with the **warm-up** screen.
+
+Home equipment can be switched off in Settings. History (date, location, exercises, sets) is kept in
+localStorage and can be exported/imported as JSON from the History tab.
 
 ## Pose data format
 
@@ -89,12 +115,18 @@ export const goblet: ExerciseAnimation = {
 - `dur` = seconds to move into the pose (eased in/out), `hold` = seconds to stay; the loop returns to keyframe 0 using its `dur`.
 - **Pins** solve a limb with IK so a contact can't slide: `{ world: vec(x, y) }` for the floor or a chair,
   `{ rel: 'hip' | 'shoulder', along, fwd }` for spots on the body. Pins can change per keyframe (`null` removes one).
-- `foreshorten` shortens segments that point into the screen (the side plank's shins).
+- `foreshorten` shortens segments that point into the screen (the side plank's shins); it can change per keyframe (the seated raise).
+- Props: `chair`, `mat`, `step`, `lines` (bench/machine outlines), `circle` (pads, pulleys), and body-following
+  `cable` (cable or machine lever to the hands), `footplate` (under the sole) and `roller` (leg-curl pad).
 - After editing, run `npm test` and `npm run poses`, then look at the grid.
 
 ## Notes
 
-- The **Romanian deadlift** carries a "check with your physio" flag. One tap on its page swaps it for step-ups in Workout B.
+- Security fixes, regression checks, remaining dependency risk and GitHub Pages header limitations: [security remediation report](docs/security-remediation.md).
+- Settings → **Activity privacy** offers **Session only** for shared devices. Existing saved activity is preserved unless you choose to remove it; session-only activity is lost when the page closes or reloads.
+
+- The **Romanian deadlift** and **back extension** carry a "check with your physio" flag and are only added when swapped in.
+- Step-ups use a low step or the bottom stair: a ~45 cm bench is too high a step to start with.
 - Workout progress is saved after every set: back button, a phone call or closing the app never loses it ("Carry on" on Home).
 - Wake lock is re-acquired whenever the app comes back to the foreground. Where unsupported, a note asks to lengthen the screen timeout.
 - Lighthouse 12+ dropped its "PWA" category; installability is verified with Chrome's own check (`Page.getInstallabilityErrors`) in both `npm run lighthouse` and the e2e suite.

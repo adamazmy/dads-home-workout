@@ -1,21 +1,69 @@
 /**
- * ALL exercise content lives here. Edit the text freely; the screens pick it up.
+ * The EXERCISE LIBRARY – all exercise content lives here. Edit freely.
  *
- * - `kind`: 'main' lifts rest 75 s between sets, 'core' moves rest 45 s.
- * - `anim`: the animation in ./animations.ts (pose data).
- * - Workouts A and B are the lists at the bottom of this file.
+ * Each exercise is tagged with:
+ *  - group:     muscle group (see GROUPS)
+ *  - where:     'home', 'gym' or 'both'
+ *  - equipment: what it needs (see EQUIPMENT; home equipment can be switched off in Settings)
+ *  - backLoad:  'low' | 'moderate' | 'high' – at most ONE high per session, and not
+ *               within 48 h of the last one (see src/lib/generator.ts)
+ *  - sets / dose / rest (seconds between sets)
+ *  - setup, steps, watch-outs, easier option, and its animation (./animations*.ts)
  */
 import type { ExerciseAnimation } from '../anim/timeline';
 import * as anims from './animations';
 
+export type MuscleGroup = 'legs' | 'chest' | 'upperBack' | 'shoulders' | 'arms' | 'core';
+export type Location = 'home' | 'gym';
+export type Equipment = 'dumbbells' | 'bench' | 'backExtension' | 'chair' | 'mat' | 'step' | 'machine' | 'cable';
+export type BackLoad = 'low' | 'moderate' | 'high';
+
+/** Display order and names of the muscle groups. */
+export const GROUPS: { id: MuscleGroup; name: string; short: string }[] = [
+  { id: 'legs', name: 'Legs & glutes', short: 'Legs' },
+  { id: 'chest', name: 'Chest', short: 'Chest' },
+  { id: 'upperBack', name: 'Upper back', short: 'Back' },
+  { id: 'shoulders', name: 'Shoulders', short: 'Shoulders' },
+  { id: 'arms', name: 'Arms', short: 'Arms' },
+  { id: 'core', name: 'Core & lower back', short: 'Core' },
+];
+export const groupName = (g: MuscleGroup): string => GROUPS.find((x) => x.id === g)!.name;
+
+/** What is available where. Home items marked `optional` can be switched off in Settings. */
+export const EQUIPMENT: Record<Equipment, { name: string; home: boolean; gym: boolean; optional?: boolean }> = {
+  dumbbells: { name: 'Adjustable dumbbells (up to 10 kg)', home: true, gym: true, optional: true },
+  bench: { name: 'Flat / adjustable bench', home: true, gym: true, optional: true },
+  backExtension: { name: 'Back extension bench', home: true, gym: true, optional: true },
+  chair: { name: 'Sturdy chair', home: true, gym: true },
+  mat: { name: 'Mat or carpet', home: true, gym: true },
+  step: { name: 'Bottom stair or low step', home: true, gym: true },
+  machine: { name: 'Machines', home: false, gym: true },
+  cable: { name: 'Cable machine', home: false, gym: true },
+};
+
 export type ExerciseId =
-  | 'goblet' | 'floorPress' | 'row' | 'bridge' | 'deadBug' | 'carry'
-  | 'splitSquat' | 'rdl' | 'stepUp' | 'shoulderPress' | 'birdDog' | 'sidePlank';
+  // Legs & glutes
+  | 'goblet' | 'splitSquat' | 'rdl' | 'stepUp' | 'bridge' | 'legPress' | 'legCurl'
+  // Chest
+  | 'floorPress' | 'benchPress' | 'inclinePress' | 'inclinePushup' | 'chestPressMachine'
+  // Upper back
+  | 'row' | 'chestSupportedRow' | 'latPulldown' | 'cableRow'
+  // Shoulders
+  | 'shoulderPress' | 'scaption' | 'proneY' | 'machineShoulderPress'
+  // Arms
+  | 'curl' | 'hammerCurl' | 'lyingTriceps' | 'pushdown' | 'cableCurl'
+  // Core & lower back
+  | 'deadBug' | 'birdDog' | 'sidePlank' | 'carry' | 'backExtension' | 'pallof';
 
 export interface Exercise {
   id: ExerciseId;
   name: string;
-  kind: 'main' | 'core';
+  group: MuscleGroup;
+  where: Location | 'both';
+  equipment: Equipment[];
+  backLoad: BackLoad;
+  /** Seconds of rest between sets. */
+  rest: number;
   sets: number;
   /** Reps / time / distance per set, e.g. "8–12 reps". */
   dose: string;
@@ -24,17 +72,19 @@ export interface Exercise {
   watchOut: [string, string, string];
   easier: string;
   /** Optional safety flag shown prominently. */
-  flag?: { text: string; alternative?: ExerciseId };
+  flag?: { text: string };
   anim: ExerciseAnimation;
 }
-
-export const REST_SECONDS = { main: 75, core: 45 } as const;
 
 export const EXERCISES: Record<ExerciseId, Exercise> = {
   goblet: {
     id: 'goblet',
     name: 'Goblet squat to a chair',
-    kind: 'main',
+    group: 'legs',
+    where: 'both',
+    equipment: ['dumbbells', 'chair'],
+    backLoad: 'moderate',
+    rest: 75,
     sets: 3,
     dose: '8–12 reps',
     setup: 'Stand in front of a chair, feet shoulder-width, holding one dumbbell upright against your chest.',
@@ -55,7 +105,11 @@ export const EXERCISES: Record<ExerciseId, Exercise> = {
   floorPress: {
     id: 'floorPress',
     name: 'Dumbbell floor press',
-    kind: 'main',
+    group: 'chest',
+    where: 'both',
+    equipment: ['dumbbells', 'mat'],
+    backLoad: 'low',
+    rest: 75,
     sets: 3,
     dose: '8–12 reps',
     setup: 'Lie on your back on a mat, knees bent, feet flat. A dumbbell in each hand, elbows on the floor.',
@@ -76,7 +130,11 @@ export const EXERCISES: Record<ExerciseId, Exercise> = {
   row: {
     id: 'row',
     name: 'Single-arm row (hand on a chair)',
-    kind: 'main',
+    group: 'upperBack',
+    where: 'both',
+    equipment: ['dumbbells', 'chair'],
+    backLoad: 'moderate',
+    rest: 75,
     sets: 3,
     dose: '10 reps each arm',
     setup: 'Put one hand on a sturdy chair seat, step back, hinge forward with a flat back. Dumbbell in the other hand, arm long.',
@@ -97,7 +155,11 @@ export const EXERCISES: Record<ExerciseId, Exercise> = {
   bridge: {
     id: 'bridge',
     name: 'Glute bridge',
-    kind: 'main',
+    group: 'legs',
+    where: 'both',
+    equipment: ['dumbbells', 'mat'],
+    backLoad: 'low',
+    rest: 60,
     sets: 3,
     dose: '12 reps',
     setup: 'Lie on your back, knees bent, feet flat and hip-width. Rest a dumbbell across your hips, holding it with both hands.',
@@ -118,7 +180,11 @@ export const EXERCISES: Record<ExerciseId, Exercise> = {
   deadBug: {
     id: 'deadBug',
     name: 'Dead bug',
-    kind: 'core',
+    group: 'core',
+    where: 'both',
+    equipment: ['mat'],
+    backLoad: 'low',
+    rest: 45,
     sets: 3,
     dose: '6–8 reps each side',
     setup: 'Lie on your back, arms pointing at the ceiling, knees bent at 90° above your hips.',
@@ -139,7 +205,11 @@ export const EXERCISES: Record<ExerciseId, Exercise> = {
   carry: {
     id: 'carry',
     name: 'Suitcase carry',
-    kind: 'core',
+    group: 'core',
+    where: 'both',
+    equipment: ['dumbbells'],
+    backLoad: 'moderate',
+    rest: 45,
     sets: 3,
     dose: '20–30 m each side',
     setup: 'Hold one dumbbell at your side like a suitcase. Stand tall.',
@@ -160,7 +230,11 @@ export const EXERCISES: Record<ExerciseId, Exercise> = {
   splitSquat: {
     id: 'splitSquat',
     name: 'Split squat holding a chair',
-    kind: 'main',
+    group: 'legs',
+    where: 'both',
+    equipment: ['chair'],
+    backLoad: 'moderate',
+    rest: 75,
     sets: 3,
     dose: '8 reps each leg',
     setup: 'Stand side-on to a chair, one hand on it. Step one foot back, back heel up. Bodyweight to start.',
@@ -181,7 +255,11 @@ export const EXERCISES: Record<ExerciseId, Exercise> = {
   rdl: {
     id: 'rdl',
     name: 'Romanian deadlift',
-    kind: 'main',
+    group: 'legs',
+    where: 'both',
+    equipment: ['dumbbells'],
+    backLoad: 'high',
+    rest: 90,
     sets: 3,
     dose: '8–10 reps',
     setup: 'Stand tall, feet hip-width, a dumbbell in each hand in front of your thighs, knees softly bent.',
@@ -196,17 +274,21 @@ export const EXERCISES: Record<ExerciseId, Exercise> = {
       'Weights stay close to your legs.',
       'Don\'t lean back at the top; just stand tall.',
     ],
-    easier: 'Do step-ups instead (button at the top of this page), or practise the hip hinge without weights.',
-    flag: { text: 'Check with your physio before doing this one.', alternative: 'stepUp' },
+    easier: 'Do step-ups instead (swap it when building your workout), or practise the hip hinge without weights.',
+    flag: { text: 'Check with your physio before doing this one.' },
     anim: anims.rdl,
   },
   stepUp: {
     id: 'stepUp',
     name: 'Step-up',
-    kind: 'main',
+    group: 'legs',
+    where: 'both',
+    equipment: ['step'],
+    backLoad: 'moderate',
+    rest: 75,
     sets: 3,
     dose: '8 reps each leg',
-    setup: 'Stand facing the bottom stair (or a sturdy low step). Hold the banister.',
+    setup: 'Stand facing the bottom stair or a sturdy low step (15–20 cm). Hold the banister. A bench is too high to start with.',
     steps: [
       'Place your whole foot on the step.',
       'Breathe out and push through that heel to stand up on the step.',
@@ -224,7 +306,11 @@ export const EXERCISES: Record<ExerciseId, Exercise> = {
   shoulderPress: {
     id: 'shoulderPress',
     name: 'Seated shoulder press (one arm)',
-    kind: 'main',
+    group: 'shoulders',
+    where: 'both',
+    equipment: ['dumbbells', 'chair'],
+    backLoad: 'low',
+    rest: 75,
     sets: 3,
     dose: '8–10 reps each arm',
     setup: 'Sit on a chair with your back against the backrest, feet flat. Dumbbell at shoulder height, palm facing in.',
@@ -245,7 +331,11 @@ export const EXERCISES: Record<ExerciseId, Exercise> = {
   birdDog: {
     id: 'birdDog',
     name: 'Bird dog',
-    kind: 'core',
+    group: 'core',
+    where: 'both',
+    equipment: ['mat'],
+    backLoad: 'low',
+    rest: 45,
     sets: 3,
     dose: '6–8 reps each side',
     setup: 'On hands and knees on a mat: hands under shoulders, knees under hips, back flat.',
@@ -266,7 +356,11 @@ export const EXERCISES: Record<ExerciseId, Exercise> = {
   sidePlank: {
     id: 'sidePlank',
     name: 'Side plank from the knees',
-    kind: 'core',
+    group: 'core',
+    where: 'both',
+    equipment: ['mat'],
+    backLoad: 'low',
+    rest: 45,
     sets: 3,
     dose: '20–30 s each side',
     setup: 'Lie on your side on a mat, elbow under your shoulder, knees bent behind you.',
@@ -284,15 +378,494 @@ export const EXERCISES: Record<ExerciseId, Exercise> = {
     easier: 'Hold for 10 seconds, or lift your hips only a little.',
     anim: anims.sidePlank,
   },
+
+  /* ------------------------------ Library additions ------------------------------ */
+
+  legPress: {
+    id: 'legPress',
+    name: 'Seated leg press',
+    group: 'legs',
+    where: 'gym',
+    equipment: ['machine'],
+    backLoad: 'moderate',
+    rest: 75,
+    sets: 3,
+    dose: '10–12 reps',
+    setup: 'Sit with your back and hips flat against the pad, feet hip-width in the middle of the plate. Hold the side handles.',
+    steps: [
+      'Push the plate away until your legs are almost straight.',
+      'Bend your knees slowly (3 seconds) towards your chest.',
+      'Stop at about a right angle – before your hips curl up off the seat.',
+      'Breathe out and push through your heels.',
+    ],
+    watchOut: [
+      'Hips and low back stay on the pad – a shorter range is fine.',
+      "Don't lock your knees at the top.",
+      'Breathe out as you push – never hold your breath.',
+    ],
+    easier: 'Lighter weight and a smaller range – stop when your knees are at about 100°.',
+    anim: anims.legPress,
+  },
+  legCurl: {
+    id: 'legCurl',
+    name: 'Seated leg curl',
+    group: 'legs',
+    where: 'gym',
+    equipment: ['machine'],
+    backLoad: 'low',
+    rest: 60,
+    sets: 3,
+    dose: '10–12 reps',
+    setup: 'Sit back against the pad, knees lined up with the machine pivot. Roller just above your heels, thigh pad snug on top.',
+    steps: [
+      'Hold the handles and sit tall against the backrest.',
+      'Breathe out and pull your heels down and back under the seat.',
+      'Squeeze for a moment.',
+      'Let your legs out slowly (3 seconds).',
+    ],
+    watchOut: [
+      'Back stays against the pad – no rocking.',
+      'Smooth and slow, no jerking the weight.',
+      'Breathe out as you curl.',
+    ],
+    easier: 'Lighter weight, or one leg at a time.',
+    anim: anims.legCurl,
+  },
+
+  benchPress: {
+    id: 'benchPress',
+    name: 'Dumbbell bench press',
+    group: 'chest',
+    where: 'both',
+    equipment: ['dumbbells', 'bench'],
+    backLoad: 'low',
+    rest: 75,
+    sets: 3,
+    dose: '8–12 reps',
+    setup: 'Sit on the end of the bench with the dumbbells on your thighs, then lie back carefully. Feet flat on the floor.',
+    steps: [
+      'Breathe out and press both dumbbells up over your chest.',
+      'Lower slowly (3 seconds) until your elbows are level with the bench.',
+      'Pause, then press again.',
+      'To finish, bring the weights to your chest and sit up with them on your thighs.',
+    ],
+    watchOut: [
+      "Low back stays relaxed on the bench – don't arch.",
+      'Elbows at about 45° from your body, not flared out wide.',
+      'Breathe out as you press.',
+    ],
+    easier: 'Floor press – the floor stops your elbows at a safe depth.',
+    anim: anims.benchPress,
+  },
+  inclinePress: {
+    id: 'inclinePress',
+    name: 'Incline dumbbell press',
+    group: 'chest',
+    where: 'both',
+    equipment: ['dumbbells', 'bench'],
+    backLoad: 'low',
+    rest: 75,
+    sets: 3,
+    dose: '8–12 reps',
+    setup: 'Set the bench to a low incline (about 30°). Sit back with your whole back and head on the pad, feet flat.',
+    steps: [
+      'Start with the dumbbells by your chest.',
+      'Breathe out and press them up over your upper chest.',
+      'Lower slowly (3 seconds) back to your chest.',
+      'Pause, then press again.',
+    ],
+    watchOut: [
+      'Back and head stay on the pad – no arching.',
+      "Don't let the elbows drop far below the bench.",
+      'Breathe out as you press.',
+    ],
+    easier: 'Lighter weights, or lower the bench nearly flat.',
+    anim: anims.inclinePress,
+  },
+  inclinePushup: {
+    id: 'inclinePushup',
+    name: 'Incline push-up (hands on the bench)',
+    group: 'chest',
+    where: 'both',
+    equipment: ['bench'],
+    backLoad: 'moderate',
+    rest: 60,
+    sets: 3,
+    dose: '6–10 reps',
+    setup: 'Put the bench against a wall so it cannot slide. Hands on its edge, shoulder-width, walk your feet back until your body is straight.',
+    steps: [
+      'Brace your tummy and squeeze your buttocks.',
+      'Lower your chest towards the bench edge (2–3 seconds).',
+      'Breathe out and push yourself away.',
+      'Keep one straight line from heels to head throughout.',
+    ],
+    watchOut: [
+      "Don't let your hips sag – that bends your low back.",
+      "Don't stick your bottom up either.",
+      'Breathe out as you push.',
+    ],
+    easier: 'Hands on a kitchen worktop or the wall – the higher, the easier.',
+    anim: anims.inclinePushup,
+  },
+  chestPressMachine: {
+    id: 'chestPressMachine',
+    name: 'Chest press machine',
+    group: 'chest',
+    where: 'gym',
+    equipment: ['machine'],
+    backLoad: 'low',
+    rest: 75,
+    sets: 3,
+    dose: '10–12 reps',
+    setup: 'Set the seat so the handles are at mid-chest. Sit with your back flat on the pad, feet flat.',
+    steps: [
+      'Hold the handles beside your chest.',
+      'Breathe out and push forward until your arms are almost straight.',
+      'Come back slowly (3 seconds).',
+      "Stop when your hands reach your chest – don't let the weights crash.",
+    ],
+    watchOut: [
+      'Back stays against the pad.',
+      "Don't lock your elbows at the front.",
+      'Breathe out as you push.',
+    ],
+    easier: 'Lighter weight, or a smaller range of movement.',
+    anim: anims.chestPressMachine,
+  },
+
+  chestSupportedRow: {
+    id: 'chestSupportedRow',
+    name: 'Chest-supported row (face-down on incline bench)',
+    group: 'upperBack',
+    where: 'both',
+    equipment: ['dumbbells', 'bench'],
+    backLoad: 'low',
+    rest: 75,
+    sets: 3,
+    dose: '10–12 reps',
+    setup: 'Set the bench to about 45°. Lie face-down with your chest on the pad and feet on the floor, a dumbbell in each hand, arms hanging.',
+    steps: [
+      'Keep your chest on the pad.',
+      'Breathe out and pull both elbows back towards your hips.',
+      'Squeeze your shoulder blades together for a moment.',
+      'Lower slowly (2–3 seconds) until your arms are long.',
+    ],
+    watchOut: [
+      "Chest stays on the pad – the bench takes the load off your back.",
+      "Don't lift your head up to look forward.",
+      'Breathe out as you pull.',
+    ],
+    easier: 'Lighter weights, or one arm at a time.',
+    anim: anims.chestSupportedRow,
+  },
+  latPulldown: {
+    id: 'latPulldown',
+    name: 'Lat pulldown',
+    group: 'upperBack',
+    where: 'gym',
+    equipment: ['machine', 'cable'],
+    backLoad: 'low',
+    rest: 75,
+    sets: 3,
+    dose: '10–12 reps',
+    setup: 'Sit with your thighs under the pad, hands a little wider than your shoulders on the bar.',
+    steps: [
+      'Lean back very slightly, chest up.',
+      'Breathe out and pull the bar down to your upper chest.',
+      'Elbows point down to the floor.',
+      'Let the bar up slowly (3 seconds) until your arms are long.',
+    ],
+    watchOut: [
+      "Don't swing or lean far back to move the weight.",
+      'Pull to the front of your chest, never behind your neck.',
+      'Breathe out as you pull.',
+    ],
+    easier: 'Lighter weight, or a narrower grip with palms facing you.',
+    anim: anims.latPulldown,
+  },
+  cableRow: {
+    id: 'cableRow',
+    name: 'Seated cable row',
+    group: 'upperBack',
+    where: 'gym',
+    equipment: ['cable'],
+    backLoad: 'moderate',
+    rest: 75,
+    sets: 3,
+    dose: '10–12 reps',
+    setup: 'Sit tall with knees slightly bent and feet on the footplate. Hold the handle with arms out straight.',
+    steps: [
+      'Sit tall – your back stays upright the whole time.',
+      'Breathe out and pull the handle to your tummy.',
+      'Squeeze your shoulder blades together.',
+      'Let your arms go forward slowly (3 seconds).',
+    ],
+    watchOut: [
+      "Don't rock forward and back – only your arms move.",
+      "Don't round your back when the arms go forward.",
+      'Breathe out as you pull.',
+    ],
+    easier: 'Lighter weight, and bend your knees a little more.',
+    anim: anims.cableRow,
+  },
+
+  scaption: {
+    id: 'scaption',
+    name: 'Seated raise (thumbs up)',
+    group: 'shoulders',
+    where: 'both',
+    equipment: ['dumbbells', 'bench'],
+    backLoad: 'low',
+    rest: 60,
+    sets: 3,
+    dose: '10–12 reps',
+    setup: 'Sit tall on the end of the bench with light dumbbells by your sides, thumbs pointing forward.',
+    steps: [
+      'Breathe out and raise both arms out to the sides and slightly forward.',
+      'Stop at shoulder height, thumbs up.',
+      'Lower slowly (3 seconds).',
+      'Use a light weight – this one is about control.',
+    ],
+    watchOut: [
+      'Sit tall – no leaning back to swing the weights up.',
+      "Don't shrug your shoulders up to your ears.",
+      'Breathe out as you raise.',
+    ],
+    easier: 'No weights, or one arm at a time.',
+    anim: anims.scaption,
+  },
+  proneY: {
+    id: 'proneY',
+    name: 'Prone Y-raise (face-down on incline bench)',
+    group: 'shoulders',
+    where: 'both',
+    equipment: ['bench'],
+    backLoad: 'low',
+    rest: 60,
+    sets: 3,
+    dose: '8–10 reps',
+    setup: 'Set the bench to about 45°. Lie face-down with your chest on the pad, arms hanging. Use no weight or the lightest dumbbells.',
+    steps: [
+      'Thumbs up, arms straight.',
+      'Breathe out and raise your arms forwards into a Y.',
+      'Stop when they are in line with your body.',
+      'Lower slowly (3 seconds).',
+    ],
+    watchOut: [
+      "Chest stays on the pad – don't arch up off it.",
+      'Arms no higher than your body line.',
+      'Breathe out as you raise.',
+    ],
+    easier: 'No weights and a smaller lift.',
+    anim: anims.proneY,
+  },
+  machineShoulderPress: {
+    id: 'machineShoulderPress',
+    name: 'Shoulder press machine',
+    group: 'shoulders',
+    where: 'gym',
+    equipment: ['machine'],
+    backLoad: 'low',
+    rest: 75,
+    sets: 3,
+    dose: '10–12 reps',
+    setup: 'Set the seat so the handles start at shoulder height. Back flat against the pad, feet flat.',
+    steps: [
+      'Hold the handles at shoulder height.',
+      'Breathe out and press up until your arms are almost straight.',
+      'Lower slowly (3 seconds) back to shoulder height.',
+      'Keep your back on the pad the whole time.',
+    ],
+    watchOut: [
+      "Don't arch your back away from the pad.",
+      "Don't lock your elbows at the top.",
+      'Breathe out as you press.',
+    ],
+    easier: 'Lighter weight, or press only halfway up.',
+    anim: anims.machineShoulderPress,
+  },
+
+  curl: {
+    id: 'curl',
+    name: 'Seated dumbbell curl',
+    group: 'arms',
+    where: 'both',
+    equipment: ['dumbbells', 'bench'],
+    backLoad: 'low',
+    rest: 60,
+    sets: 3,
+    dose: '10–12 reps',
+    setup: 'Sit tall on the end of the bench, dumbbells by your sides, palms facing forward.',
+    steps: [
+      'Elbows stay by your sides.',
+      'Breathe out and curl the weights up.',
+      'Squeeze for a moment at the top.',
+      'Lower slowly (3 seconds) until your arms are long.',
+    ],
+    watchOut: [
+      "Sit tall – don't lean back to swing the weights.",
+      "Only your forearms move; elbows don't drift forward.",
+      'Breathe out as you curl.',
+    ],
+    easier: 'Lighter weights, or one arm at a time.',
+    anim: anims.curl,
+  },
+  hammerCurl: {
+    id: 'hammerCurl',
+    name: 'Seated hammer curl',
+    group: 'arms',
+    where: 'both',
+    equipment: ['dumbbells', 'bench'],
+    backLoad: 'low',
+    rest: 60,
+    sets: 3,
+    dose: '10–12 reps',
+    setup: 'Sit tall on the end of the bench, dumbbells by your sides, palms facing in (like holding a hammer).',
+    steps: [
+      'Elbows stay by your sides.',
+      'Breathe out and curl the weights up, palms still facing in.',
+      'Pause at the top.',
+      'Lower slowly (3 seconds).',
+    ],
+    watchOut: [
+      "Sit tall – don't lean back.",
+      'No swinging; slow on the way down.',
+      'Breathe out as you curl.',
+    ],
+    easier: 'Lighter weights, or one arm at a time.',
+    anim: anims.hammerCurl,
+  },
+  lyingTriceps: {
+    id: 'lyingTriceps',
+    name: 'Lying triceps extension',
+    group: 'arms',
+    where: 'both',
+    equipment: ['dumbbells', 'bench'],
+    backLoad: 'low',
+    rest: 60,
+    sets: 3,
+    dose: '10–12 reps',
+    setup: 'Lie on the bench, feet flat on the floor. Hold light dumbbells straight up over your shoulders, palms facing in.',
+    steps: [
+      'Upper arms stay still, pointing up.',
+      'Bend your elbows slowly (3 seconds) to lower the weights beside your head.',
+      'Breathe out and straighten your arms.',
+      'Keep a light weight – it moves near your head.',
+    ],
+    watchOut: [
+      "Low back stays relaxed on the bench – don't arch.",
+      'Weights go beside your head, never over your face.',
+      'Breathe out as you straighten.',
+    ],
+    easier: 'One dumbbell held in both hands, or a smaller bend.',
+    anim: anims.lyingTriceps,
+  },
+  pushdown: {
+    id: 'pushdown',
+    name: 'Cable triceps pushdown',
+    group: 'arms',
+    where: 'gym',
+    equipment: ['cable'],
+    backLoad: 'low',
+    rest: 60,
+    sets: 3,
+    dose: '10–12 reps',
+    setup: 'Stand facing the high pulley, feet hip-width, knees soft. Hold the bar or rope with elbows tucked at your sides.',
+    steps: [
+      'Lean forward only slightly, back straight.',
+      'Breathe out and push down until your arms are straight.',
+      'Pause.',
+      'Let it up slowly (3 seconds) – elbows stay at your sides.',
+    ],
+    watchOut: [
+      "Don't lean over the weight to push it down.",
+      'Elbows stay still at your sides.',
+      'Breathe out as you push.',
+    ],
+    easier: 'Lighter weight, one arm at a time.',
+    anim: anims.pushdown,
+  },
+  cableCurl: {
+    id: 'cableCurl',
+    name: 'Cable curl',
+    group: 'arms',
+    where: 'gym',
+    equipment: ['cable'],
+    backLoad: 'low',
+    rest: 60,
+    sets: 3,
+    dose: '10–12 reps',
+    setup: 'Stand facing the low pulley, feet hip-width, knees soft. Hold the bar with palms facing up.',
+    steps: [
+      'Stand tall, elbows by your sides.',
+      'Breathe out and curl the bar up.',
+      'Squeeze at the top.',
+      'Lower slowly (3 seconds).',
+    ],
+    watchOut: [
+      "Don't lean back to lift the weight.",
+      "Elbows stay by your sides.",
+      'Breathe out as you curl.',
+    ],
+    easier: 'Lighter weight, or sit on a bench facing the pulley.',
+    anim: anims.cableCurl,
+  },
+
+  backExtension: {
+    id: 'backExtension',
+    name: 'Back extension (bodyweight, partial)',
+    group: 'core',
+    where: 'both',
+    equipment: ['backExtension'],
+    backLoad: 'high',
+    rest: 75,
+    sets: 2,
+    dose: '8–10 slow reps',
+    setup: 'Set the hip pad just below your hip bones. Heels under the rollers, arms folded in front of your chest. Bodyweight only – no weights.',
+    steps: [
+      'Start in a straight line from heels to head.',
+      'Hinge forward slowly at the hips (3 seconds), back flat – only partway down.',
+      'Breathe out and rise until your body is a straight line again.',
+      'Stop there – never lean back past straight.',
+    ],
+    watchOut: [
+      'Never arch past a straight line at the top.',
+      'Neutral spine: move at the hips, not by rounding your back.',
+      'Small range, slow and smooth – no bouncing.',
+    ],
+    easier: 'Glute bridge or bird dog instead.',
+    flag: { text: 'Check with your physio before doing this one.' },
+    anim: anims.backExtension,
+  },
+  pallof: {
+    id: 'pallof',
+    name: 'Cable Pallof press',
+    group: 'core',
+    where: 'gym',
+    equipment: ['cable'],
+    backLoad: 'low',
+    rest: 45,
+    sets: 3,
+    dose: '8 reps each side, 2 s hold',
+    setup: 'Set the pulley at chest height. Stand side-on to it, feet hip-width, holding the handle at your chest with both hands.',
+    steps: [
+      'Brace your tummy, knees soft.',
+      'Breathe out and press the handle straight out in front of you.',
+      "Hold for 2 seconds – don't let the cable twist you.",
+      'Bring it back to your chest. Turn round for the other side.',
+    ],
+    watchOut: [
+      'No twisting – your hips and shoulders face straight ahead.',
+      'Stand tall; no leaning away from the cable.',
+      'Keep breathing during the hold.',
+    ],
+    easier: 'Lighter weight, or stand closer to the pulley.',
+    anim: anims.pallof,
+  },
 };
 
-export type WorkoutId = 'A' | 'B';
+/** All exercises, in library order. */
+export const EXERCISE_LIST: Exercise[] = Object.values(EXERCISES);
 
-export const WORKOUTS: Record<WorkoutId, { name: string; exercises: ExerciseId[] }> = {
-  A: { name: 'Workout A', exercises: ['goblet', 'floorPress', 'row', 'bridge', 'deadBug', 'carry'] },
-  B: { name: 'Workout B', exercises: ['splitSquat', 'rdl', 'shoulderPress', 'row', 'birdDog', 'sidePlank'] },
-};
-
-/** Weekly schedule (0 = Monday). Workout days alternate A/B; other days are walks. */
-export const WORKOUT_DAYS = [0, 2, 4];
-export const WALK_TEXT = 'Walk 20–30 min';
+export const isExerciseId = (v: unknown): v is ExerciseId =>
+  typeof v === 'string' && Object.prototype.hasOwnProperty.call(EXERCISES, v);

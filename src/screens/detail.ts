@@ -1,33 +1,41 @@
-import { EXERCISES, type ExerciseId, REST_SECONDS } from '../data/exercises';
+import { EQUIPMENT, EXERCISES, type ExerciseId, groupName, isExerciseId } from '../data/exercises';
 import { type Screen, h } from '../lib/dom';
 import { icon } from '../lib/icons';
-import { load, save } from '../lib/storage';
 import { backButton, topbar } from './chrome';
 import { createStage } from './stage';
 
 function flagCard(id: ExerciseId): HTMLElement | null {
   const ex = EXERCISES[id];
   if (!ex.flag) return null;
-  const alt = ex.flag.alternative ? EXERCISES[ex.flag.alternative] : null;
-  const using = load().useStepUps;
-  const status = h('p', { 'aria-live': 'polite' }, using ? `Your plan uses ${alt?.name.toLowerCase()} instead.` : 'Your plan includes this exercise.');
-  const toggle = h('button', { class: 'btn btn-block', type: 'button' });
-  const sync = () => {
-    const now = load().useStepUps;
-    toggle.textContent = now ? `Physio said OK – use ${ex.name.toLowerCase()}` : `Use ${alt?.name.toLowerCase()} instead`;
-    status.textContent = now ? `Your plan uses ${alt?.name.toLowerCase()} instead.` : 'Your plan includes this exercise.';
-  };
-  toggle.addEventListener('click', () => {
-    save({ useStepUps: !load().useStepUps });
-    sync();
-  });
-  sync();
-  return h('section', { class: 'warn', role: 'note' }, h('h2', {}, icon('warning', 26), ex.flag.text), alt ? status : null, alt ? toggle : null);
+  return h(
+    'section',
+    { class: 'warn', role: 'note' },
+    h('h2', {}, icon('warning', 26), ex.flag.text),
+    h('p', { style: 'margin:0' }, 'It is never added to a workout automatically – only if you swap it in yourself, once your physio says it is OK.'),
+  );
+}
+
+const BACK_LOAD_TEXT = {
+  low: 'Gentle on the back',
+  moderate: 'Some load on the back – keep it flat',
+  high: 'Back-heavy – one per session, 48 h apart',
+} as const;
+
+function tags(ex: (typeof EXERCISES)[ExerciseId]): HTMLElement {
+  const where = ex.where === 'both' ? 'Home or gym' : ex.where === 'home' ? 'Home' : 'Gym';
+  return h(
+    'ul',
+    { class: 'tags', 'aria-label': 'About this exercise' },
+    h('li', {}, groupName(ex.group)),
+    h('li', {}, where),
+    ...ex.equipment.map((e) => h('li', {}, EQUIPMENT[e].name)),
+    h('li', { class: `load-${ex.backLoad}` }, BACK_LOAD_TEXT[ex.backLoad]),
+  );
 }
 
 export function detailScreen(id: string): Screen | null {
-  if (!(id in EXERCISES)) return null;
-  const ex = EXERCISES[id as ExerciseId];
+  if (!isExerciseId(id)) return null; // own-property check: no prototype keys from the URL
+  const ex = EXERCISES[id];
   const stage = createStage(ex);
 
   const el = h(
@@ -35,12 +43,13 @@ export function detailScreen(id: string): Screen | null {
     { class: 'app' },
     topbar(ex.name),
     flagCard(ex.id),
+    tags(ex),
     stage.el,
     h(
       'section',
       { class: 'card' },
       h('p', { class: 'dose-big' }, `${ex.sets} sets × ${ex.dose}`),
-      h('p', { class: 'meta', style: 'margin:0' }, `Rest ${REST_SECONDS[ex.kind]} seconds between sets.`),
+      h('p', { class: 'meta', style: 'margin:0' }, `Rest ${ex.rest} seconds between sets.`),
     ),
     h('section', { class: 'card', 'aria-labelledby': 'setup-h' }, h('h2', { id: 'setup-h' }, 'Setup'), h('p', { style: 'margin:0' }, ex.setup)),
     h(

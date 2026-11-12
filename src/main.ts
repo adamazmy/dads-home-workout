@@ -5,7 +5,9 @@ import { applyTheme } from './lib/storage';
 import { type Route, start } from './lib/router';
 import { detailScreen } from './screens/detail';
 import { homeScreen } from './screens/home';
-import { progressScreen } from './screens/progress';
+import { chooseScreen } from './screens/choose';
+import { historyScreen } from './screens/history';
+import { libraryScreen } from './screens/library';
 import { safetyScreen } from './screens/safety';
 import { settingsScreen } from './screens/settings';
 import { weekScreen } from './screens/week';
@@ -25,8 +27,12 @@ function build(route: Route): Screen {
       return safetyScreen();
     case 'week':
       return weekScreen();
-    case 'progress':
-      return progressScreen();
+    case 'history':
+      return historyScreen();
+    case 'choose':
+      return chooseScreen();
+    case 'library':
+      return libraryScreen();
     case 'settings':
       return settingsScreen();
     default:

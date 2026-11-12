@@ -29,3 +29,12 @@ svg.figure.silhouette .foot,
 svg.figure.silhouette .hand { fill: #10241a; stroke: #10241a; }
 svg.figure.silhouette .head { fill: #10241a; stroke: #10241a; }
 svg.figure.silhouette .far { opacity: 0.8; }
+
+/* Benches and machines */
+svg.figure .pad { fill: none; stroke: var(--pad); stroke-width: 7; stroke-linecap: round; stroke-linejoin: round; }
+svg.figure .pad-round { fill: var(--pad); }
+svg.figure .pulley { fill: var(--surface); stroke: var(--prop); stroke-width: 2.4; }
+svg.figure .cable { stroke: var(--prop); stroke-width: 1.4; }
+svg.figure .cable.dashed { stroke-dasharray: 4 3; }
+svg.figure .lever { stroke: var(--prop); stroke-width: 4; stroke-linecap: round; }
+svg.figure .plate { stroke: var(--prop); stroke-width: 4.5; stroke-linecap: round; }

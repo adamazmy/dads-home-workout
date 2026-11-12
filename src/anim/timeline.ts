@@ -13,12 +13,27 @@ import {
   solve,
 } from './skeleton';
 
-/** Static scenery drawn behind the figure. Coordinates in cm, y up. */
+type ArmKey = 'armN' | 'armF';
+type LegKey = 'legN' | 'legF';
+
+/** Scenery. Coordinates in cm, y up. Static props are drawn once; the last four follow the body. */
 export type Prop =
   /** `x` = front edge of the seat; `facing` = the way a seated person would face. */
   | { kind: 'chair'; x: number; facing: 'left' | 'right'; seat?: number; depth?: number; back?: number }
   | { kind: 'mat'; x1: number; x2: number }
-  | { kind: 'step'; x1: number; x2: number; h: number };
+  | { kind: 'step'; x1: number; x2: number; h: number }
+  /** Polylines: `pad` = thick upholstered pad, `frame` = machine/bench frame. */
+  | { kind: 'lines'; style: 'pad' | 'frame'; paths: Vec[][] }
+  /** A fixed round pad or pulley. */
+  | { kind: 'circle'; style: 'pad' | 'pulley'; c: Vec; r: number }
+  /** A cable (thin) or machine lever arm (thick) from a fixed point to the hand(s). */
+  | { kind: 'cable'; style: 'cable' | 'lever'; from: Vec; to: ArmKey[]; depthHint?: boolean }
+  /** Footplate under the sole of a foot (leg press, cable row), following the foot. */
+  | { kind: 'footplate'; limb: LegKey }
+  /** Round roller pad on the shin (leg curl), on the calf side. */
+  | { kind: 'roller'; limb: LegKey; along: number; r: number };
+
+export const isDynamicProp = (p: Prop): boolean => p.kind === 'cable' || p.kind === 'footplate' || p.kind === 'roller';
 
 export interface DumbbellSpec {
   /** Which hand holds it, or `hip` for a dumbbell resting across the hips. */
@@ -26,9 +41,10 @@ export interface DumbbellSpec {
   /**
    * How the dumbbell is seen: `end` = handle points at the camera (a disc),
    * `grip` = handle across the palm in the plane of the picture (neutral grip),
-   * `torso` = handle parallel to the spine (goblet hold), or a fixed global angle.
+   * `torso` = handle parallel to the spine (goblet hold), `handle` = a machine
+   * or cable handle (small grip), or a fixed global angle.
    */
-  view: 'end' | 'grip' | 'torso' | number;
+  view: 'end' | 'grip' | 'torso' | 'handle' | number;
   /** Offset in the torso frame when `at` is `hip`: [along spine, forward]. */
   offset?: [number, number];
 }
@@ -47,7 +63,11 @@ export interface Keyframe {
   anchor?: Vec;
   /** Pins that change at this keyframe (null removes a pin). */
   pins?: Pins;
+  /** Foreshortening that changes at this keyframe (e.g. an arm swinging out of the picture plane). */
+  foreshorten?: Foreshorten;
 }
+
+type Foreshorten = NonNullable<SolveInput['foreshorten']>;
 
 export interface ExerciseAnimation {
   /** `frontal` = seen from the front (side plank): sagittal hip limits don't apply. */
@@ -68,6 +88,7 @@ interface ResolvedFrame {
   pose: Pose;
   anchor: Vec;
   pins: Pins;
+  foreshorten: Foreshorten;
   figure: Figure;
   startTime: number; // when the move into this frame starts
 }
@@ -89,6 +110,17 @@ function lerpPin(a: PinTarget, b: PinTarget, t: number): PinTarget | null {
   return null;
 }
 
+const ONE: [number, number, number] = [1, 1, 1];
+function lerpForeshorten(a: Foreshorten, b: Foreshorten, t: number): Foreshorten {
+  const out: Foreshorten = {};
+  for (const k of new Set([...Object.keys(a), ...Object.keys(b)]) as Set<LimbKey>) {
+    const x = a[k] ?? ONE;
+    const y = b[k] ?? ONE;
+    out[k] = [lerp(x[0], y[0], t), lerp(x[1], y[1], t), lerp(x[2], y[2], t)];
+  }
+  return out;
+}
+
 /** Pre-solves every keyframe so playback only has to interpolate. */
 export class Timeline {
   readonly frames: ResolvedFrame[];
@@ -98,13 +130,15 @@ export class Timeline {
     let pose = anim.start;
     let anchor = anim.anchor;
     let pins: Pins = { ...anim.pins };
+    let fs: Foreshorten = { ...anim.foreshorten };
     let time = 0;
     this.frames = anim.keyframes.map((kf) => {
       pose = { ...pose, ...kf.pose };
       anchor = kf.anchor ?? anchor;
       pins = { ...pins, ...kf.pins };
-      const figure = solve({ pose, anchorMode: anim.anchorMode, anchor, pins, depth: anim.depth, foreshorten: anim.foreshorten });
-      const frame: ResolvedFrame = { kf, pose: figure.pose, anchor, pins, figure, startTime: time };
+      fs = { ...fs, ...kf.foreshorten };
+      const figure = solve({ pose, anchorMode: anim.anchorMode, anchor, pins, depth: anim.depth, foreshorten: fs });
+      const frame: ResolvedFrame = { kf, pose: figure.pose, anchor, pins, foreshorten: fs, figure, startTime: time };
       time += kf.dur + (kf.hold ?? 0);
       return frame;
     });
@@ -140,7 +174,7 @@ export class Timeline {
       anchor: lerpVec(from.anchor, to.anchor, s),
       pins,
       depth: this.anim.depth,
-      foreshorten: this.anim.foreshorten,
+      foreshorten: lerpForeshorten(from.foreshorten, to.foreshorten, s),
     });
     return { figure, label: to.kf.label, index: i };
   }

@@ -1,5 +1,6 @@
 import { appendFileSync, readFileSync, writeFileSync } from 'node:fs';
 import { type Page, expect, test } from '@playwright/test';
+import { startWorkout } from '../e2e/helpers';
 
 /**
  * An installed app on Android is resumed from the background rather than
@@ -30,7 +31,7 @@ test('a new deploy reaches a resumed app, but waits until the workout is left', 
   await expect.poll(() => reloaded(page), { timeout: 15_000 }).toBe(true);
 
   // Resumed during the rest timer → no reload, the timer keeps running.
-  await page.getByRole('button', { name: /Start Workout/ }).click();
+  await startWorkout(page);
   await page.getByRole('button', { name: 'Set done' }).click();
   await expect(page.getByRole('timer')).toBeVisible();
   await page.waitForFunction(() => !!navigator.serviceWorker.controller);

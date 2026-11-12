@@ -1,12 +1,13 @@
 import type { Player } from '../anim/player';
-import { WALK_TEXT, WORKOUTS, type WorkoutId } from '../data/exercises';
+import { EXERCISES, type MuscleGroup } from '../data/exercises';
 import { unlockAudio } from '../lib/alerts';
 import { type Screen, h } from '../lib/dom';
+import { lastTrained, mostOverdue, whenText } from '../lib/generator';
 import { icon } from '../lib/icons';
-import { estimateMinutes, workoutExercises } from '../lib/plan';
 import { href, navigate } from '../lib/router';
 import { load, save } from '../lib/storage';
-import { cardTitle, heroArt, tabBar, weekDays } from './chrome';
+import { WALK_TEXT, cardTitle, heroArt, tabBar, weekDays } from './chrome';
+import { presetChoose } from './choose';
 import { createThumb } from './stage';
 
 function greeting(now = new Date()): string {
@@ -14,18 +15,22 @@ function greeting(now = new Date()): string {
   return hr < 12 ? 'Good morning' : hr < 18 ? 'Good afternoon' : 'Good evening';
 }
 
+const go = (route: Parameters<typeof navigate>[0]) => (e: Event) => {
+  e.preventDefault();
+  navigate(route);
+};
+
 export function weekCard(): HTMLElement {
   const items = weekDays().map((d) => {
-    // A workout counts whichever day it was done on.
-    const done = d.workoutDone !== null || (!d.isWorkout && d.walkDone);
-    const what = done ? 'Done' : d.isWorkout ? 'Lift' : 'Walk';
-    const label = `${d.name}${d.isToday ? ' (today)' : ''}: ${d.isWorkout ? 'workout' : WALK_TEXT}${done ? ', done' : ''}`;
+    const lifted = d.workouts.length > 0;
+    const what = lifted ? 'Lift' : d.walkDone ? 'Walk' : d.isFuture || d.isToday ? '' : 'Rest';
+    const label = `${d.name}${d.isToday ? ' (today)' : ''}: ${lifted ? 'workout done' : d.walkDone ? 'walk done' : d.isFuture ? 'to come' : 'nothing logged'}`;
     return h(
       'li',
-      { class: `day${d.isToday ? ' today' : ''}${done ? ' done' : ''}`, 'aria-label': label },
+      { class: `day${d.isToday ? ' today' : ''}${lifted || d.walkDone ? ' done' : ''}`, 'aria-label': label },
       h('b', { 'aria-hidden': 'true' }, d.name),
-      h('span', { class: 'what', 'aria-hidden': 'true' }, what),
-      icon(done ? 'checkCircle' : d.isWorkout ? 'dumbbell' : 'walk', 24),
+      h('span', { class: 'what', 'aria-hidden': 'true' }, what || ' '),
+      lifted ? icon('checkCircle', 24) : d.walkDone ? icon('walk', 24) : h('span', { class: 'icon-spacer', 'aria-hidden': 'true' }),
     );
   });
   return h(
@@ -33,106 +38,128 @@ export function weekCard(): HTMLElement {
     { class: 'card', 'aria-labelledby': 'week-h' },
     cardTitle('calendar', 'This Week', 'week-h'),
     h('ul', { class: 'week' }, ...items),
-    h('p', { class: 'legend' }, icon('info', 22), `Lift = workout (alternate A and B). Walk = ${WALK_TEXT.toLowerCase()}.`),
+    h('p', { class: 'legend' }, icon('info', 22), `Aim for 2–3 workouts a week, and a ${WALK_TEXT.toLowerCase()} on the other days.`),
+  );
+}
+
+function lastTrainedCard(): HTMLElement {
+  const { history } = load();
+  const due = mostOverdue(history);
+  const tiles = lastTrained(history).map((g) =>
+    h(
+      'li',
+      {},
+      h(
+        'button',
+        {
+          class: `group-tile${due?.group === g.group ? ' due' : ''}`,
+          type: 'button',
+          'aria-label': `${g.name}: last trained ${whenText(g.days).toLowerCase()}. Build a workout for ${g.name}.`,
+          onclick: () => {
+            unlockAudio();
+            presetChoose([g.group as MuscleGroup]);
+            navigate({ name: 'choose' });
+          },
+        },
+        h('span', { class: 'g-name' }, g.name),
+        h('span', { class: 'g-when' }, whenText(g.days)),
+        due?.group === g.group ? h('span', { class: 'due-pill' }, 'Due') : null,
+      ),
+    ),
+  );
+  return h(
+    'section',
+    { class: 'card', 'aria-labelledby': 'trained-h' },
+    cardTitle('clock', 'Last trained', 'trained-h'),
+    h('ul', { class: 'group-grid' }, ...tiles),
+    h(
+      'p',
+      { class: 'legend' },
+      icon('info', 22),
+      due
+        ? `${due.name} ${due.days === null ? 'hasn’t had a turn yet' : `was last trained ${due.days} days ago`} – a Full body workout includes it, or tap it to focus on it.`
+        : history.length
+          ? 'Nicely balanced. Tap a muscle group to focus on it.'
+          : 'Your workouts will show up here. Tap a muscle group to focus on it.',
+    ),
   );
 }
 
 export function homeScreen(): Screen {
   const state = load();
   const players: Player[] = [];
-  const nextId: WorkoutId = state.next;
-  const other: WorkoutId = nextId === 'A' ? 'B' : 'A';
-  const list = workoutExercises(nextId);
 
-  const start = () => {
-    unlockAudio(); // Chrome needs a tap before it will play the rest-timer beep
-    save({ progress: null });
-    navigate({ name: 'workout' });
+  const choose = () => {
+    unlockAudio(); // a tap now lets Chrome play the rest-timer beep later
+    presetChoose(null);
+    navigate({ name: 'choose' });
   };
 
   const resume = state.progress
     ? h(
         'section',
         { class: 'warn', 'aria-labelledby': 'resume-h' },
-        h('h2', { id: 'resume-h' }, `Workout ${state.progress.workout} not finished`),
-        h('p', {}, `You stopped at exercise ${state.progress.index + 1} of ${WORKOUTS[state.progress.workout].exercises.length}.`),
+        h('h2', { id: 'resume-h' }, 'Workout not finished'),
         h(
-          'button',
-          {
-            class: 'btn btn-primary btn-block',
-            type: 'button',
-            onclick: () => {
-              unlockAudio();
-              navigate({ name: 'workout' });
+          'p',
+          {},
+          `You stopped at ${EXERCISES[state.progress.plan.exercises[state.progress.index]!].name.toLowerCase()} (exercise ${state.progress.index + 1} of ${state.progress.plan.exercises.length}).`,
+        ),
+        h(
+          'div',
+          { class: 'row' },
+          h(
+            'button',
+            {
+              class: 'btn btn-primary',
+              type: 'button',
+              onclick: () => {
+                unlockAudio();
+                navigate({ name: 'workout' });
+              },
             },
-          },
-          icon('play', 22),
-          'Carry on',
+            icon('play', 22),
+            'Carry on',
+          ),
+          h(
+            'button',
+            {
+              class: 'btn',
+              type: 'button',
+              onclick: () => {
+                if (confirm('Throw away this unfinished workout? Sets already done will not be saved.')) {
+                  save({ progress: null });
+                  dispatchEvent(new Event('app:refresh'));
+                }
+              },
+            },
+            'Discard',
+          ),
         ),
       )
     : null;
 
+  const due = mostOverdue(state.history);
   const hero = h(
     'section',
     { class: 'hero', 'aria-labelledby': 'next-h' },
     heroArt(),
-    h('h1', { id: 'next-h' }, WORKOUTS[nextId].name),
+    h('h1', { id: 'next-h' }, "Today's workout"),
     h(
       'p',
       { class: 'hero-meta' },
-      h('span', {}, icon('dumbbell', 26), `${list.length} exercises`),
+      h('span', {}, icon('dumbbell', 26), 'Home or gym'),
       h('span', { class: 'divider', 'aria-hidden': 'true' }),
-      h('span', {}, icon('clock', 24), `About ${estimateMinutes(list)} minutes`),
+      h('span', {}, icon('clock', 24), 'About 40 minutes'),
     ),
+    due ? h('p', { class: 'hero-hint' }, `Most overdue: ${due.name}.`) : null,
     h(
       'div',
       { class: 'hero-actions' },
-      h('button', { class: 'btn btn-cream', type: 'button', onclick: start }, icon('play', 26), `Start ${WORKOUTS[nextId].name}`),
-      h(
-        'button',
-        {
-          class: 'btn btn-ghost-light',
-          type: 'button',
-          onclick: () => {
-            save({ next: other, progress: null });
-            dispatchEvent(new Event('app:refresh'));
-          },
-        },
-        icon('swap', 24),
-        `Do ${WORKOUTS[other].name} instead`,
-      ),
+      h('button', { class: 'btn btn-cream', type: 'button', onclick: choose }, icon('play', 26), "Choose today's workout"),
+      h('a', { class: 'btn btn-ghost-light', href: href({ name: 'library' }), onclick: go({ name: 'library' }) }, icon('dumbbell', 24), 'All exercises'),
     ),
   );
-
-  const items = list.map((ex) => {
-    const thumb = createThumb(ex);
-    players.push(thumb.player);
-    return h(
-      'li',
-      {},
-      h(
-        'a',
-        { class: 'ex-item', href: href({ name: 'exercise', id: ex.id }), 'data-ex': ex.id },
-        thumb.el,
-        h(
-          'span',
-          {},
-          h('span', { class: 'name' }, ex.name),
-          h('span', { class: 'dose' }, `${ex.sets} × ${ex.dose}`),
-          ex.flag ? h('span', { class: 'flag' }, icon('warning', 16), 'Ask physio first') : null,
-        ),
-        h('span', { class: 'chev' }, icon('chevronRight', 26)),
-      ),
-    );
-  });
-  const listEl = h('ul', { class: 'ex-list' }, ...items);
-  // Links push a history entry so the Android back button returns here.
-  listEl.addEventListener('click', (e) => {
-    const a = (e.target as Element).closest<HTMLAnchorElement>('a[data-ex]');
-    if (!a) return;
-    e.preventDefault();
-    navigate({ name: 'exercise', id: a.dataset.ex! });
-  });
 
   const beforeStart = h(
     'section',
@@ -141,42 +168,23 @@ export function homeScreen(): Screen {
     h(
       'ul',
       { class: 'checklist' },
-      ...['Warm up for 5–10 minutes', 'Breathe out on the effort – never hold your breath', 'Stop if anything feels sharp or painful'].map((t) =>
+      ...['Every workout starts with a warm-up', 'Breathe out on the effort – never hold your breath', 'Stop if anything feels sharp or painful'].map((t) =>
         h('li', {}, icon('checkCircle', 26), t),
       ),
     ),
-    h(
-      'a',
-      {
-        class: 'btn btn-block',
-        href: href({ name: 'safety' }),
-        onclick: (e: Event) => {
-          e.preventDefault();
-          navigate({ name: 'safety' });
-        },
-      },
-      'Safety & back care',
-    ),
+    h('a', { class: 'btn btn-block', href: href({ name: 'safety' }), onclick: go({ name: 'safety' }) }, 'Safety & back care'),
   );
 
-  const first = list[0]!;
-  const demo = createThumb(first);
+  const demo = createThumb(EXERCISES.goblet);
   players.push(demo.player);
+  demo.el.classList.remove('thumb');
   const howTo = h(
     'a',
-    {
-      class: 'card howto',
-      href: href({ name: 'exercise', id: first.id }),
-      onclick: (e: Event) => {
-        e.preventDefault();
-        navigate({ name: 'exercise', id: first.id });
-      },
-    },
+    { class: 'card howto', href: href({ name: 'library' }), onclick: go({ name: 'library' }) },
     h('div', { class: 'howto-stage' }, demo.el, h('span', { class: 'play-badge', 'aria-hidden': 'true' }, icon('play', 30))),
     h('h2', {}, 'How to do the exercises'),
-    h('p', { class: 'meta', style: 'margin:0 4px' }, 'Slow animated demos, step by step.'),
+    h('p', { class: 'meta', style: 'margin:0 4px' }, 'All 31 exercises with slow animated demos.'),
   );
-  demo.el.classList.remove('thumb');
 
   const el = h(
     'main',
@@ -186,26 +194,11 @@ export function homeScreen(): Screen {
       { class: 'greeting' },
       h('span', { class: 'wave', 'aria-hidden': 'true' }, '💪'),
       h('div', {}, h('p', { class: 'hello' }, greeting()), h('p', {}, 'Ready for your workout?')),
-      h(
-        'button',
-        { class: 'icon-btn', type: 'button', 'aria-label': 'Settings', onclick: () => navigate({ name: 'settings' }) },
-        icon('gear', 28),
-      ),
+      h('button', { class: 'icon-btn', type: 'button', 'aria-label': 'Settings', onclick: () => navigate({ name: 'settings' }) }, icon('gear', 28)),
     ),
     resume,
     hero,
-    weekCard(),
-    h(
-      'div',
-      { class: 'home-grid' },
-      h(
-        'section',
-        { 'aria-labelledby': 'list-h' },
-        h('h2', { id: 'list-h', class: 'section-title' }, `${WORKOUTS[nextId].name} – The Exercises`),
-        listEl,
-      ),
-      h('aside', {}, beforeStart, howTo),
-    ),
+    h('div', { class: 'home-grid' }, h('div', {}, lastTrainedCard(), weekCard()), h('aside', {}, beforeStart, howTo)),
     tabBar('home'),
   );
 

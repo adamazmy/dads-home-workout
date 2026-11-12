@@ -10,7 +10,7 @@ for (const theme of ['light', 'dark'] as const) {
     const only = process.env.ONLY ? `&only=${process.env.ONLY}&w=360` : '';
     await page.goto(`/debug.html?theme=${theme}${only}`);
     await page.waitForSelector('body[data-ready="1"]');
-    await page.screenshot({ path: `reports/poses-${theme}${process.env.ONLY ? '-' + process.env.ONLY : ''}.png`, fullPage: true });
+    await page.screenshot({ path: `reports/poses-${theme}${process.env.ONLY ? '-' + process.env.ONLY.split(',')[0] : ''}.png`, fullPage: true });
     const bad = await page.locator('.debug-cell.bad figcaption').allTextContents();
     expect(bad, bad.join('\n')).toEqual([]);
   });

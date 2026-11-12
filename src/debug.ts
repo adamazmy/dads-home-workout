@@ -7,7 +7,7 @@ import * as anims from './data/animations';
 
 const params = new URLSearchParams(location.search);
 if (params.get('theme')) document.documentElement.dataset.theme = params.get('theme')!;
-const only = params.get('only');
+const only = params.get('only')?.split(',');
 const mids = params.get('mids') !== '0';
 const cellW = params.get('w');
 if (cellW) document.documentElement.style.setProperty('--cell-w', `${cellW}px`);
@@ -15,7 +15,7 @@ if (cellW) document.documentElement.style.setProperty('--cell-w', `${cellW}px`);
 const grid = document.getElementById('grid')!;
 grid.className = 'debug-grid';
 for (const [name, anim] of Object.entries(anims)) {
-  if (only && name !== only) continue;
+  if (only && !only.includes(name)) continue;
   const tl = new Timeline(anim);
   const row = document.createElement('section');
   row.className = 'debug-row';

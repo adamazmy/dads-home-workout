@@ -12,20 +12,23 @@ export type Route =
   | { name: 'workout' }
   | { name: 'safety' }
   | { name: 'week' }
-  | { name: 'progress' }
-  | { name: 'settings' };
+  | { name: 'history' }
+  | { name: 'settings' }
+  | { name: 'choose' }
+  | { name: 'library' };
 
 /** Top-level tabs of the bottom bar. */
-export const TABS = ['home', 'week', 'progress'] as const;
+export const TABS = ['home', 'week', 'history'] as const;
+const SIMPLE = ['workout', 'safety', 'week', 'history', 'settings', 'choose', 'library'] as const;
 
 export function parse(hash: string): Route {
   const parts = hash.replace(/^#\/?/, '').split('/');
-  if (parts[0] === 'exercise' && parts[1]) return { name: 'exercise', id: decodeURIComponent(parts[1]) };
-  if (parts[0] === 'workout') return { name: 'workout' };
-  if (parts[0] === 'safety') return { name: 'safety' };
-  if (parts[0] === 'week') return { name: 'week' };
-  if (parts[0] === 'progress') return { name: 'progress' };
-  if (parts[0] === 'settings') return { name: 'settings' };
+  if (parts[0] === 'exercise' && parts[1]) {
+    try { return { name: 'exercise', id: decodeURIComponent(parts[1]) }; }
+    catch { return { name: 'home' }; }
+  }
+  const simple = SIMPLE.find((n) => n === parts[0]);
+  if (simple) return { name: simple };
   return { name: 'home' };
 }
 
@@ -33,15 +36,10 @@ export function href(route: Route): string {
   switch (route.name) {
     case 'exercise':
       return `#/exercise/${encodeURIComponent(route.id)}`;
-    case 'workout':
-      return '#/workout';
-    case 'safety':
-    case 'week':
-    case 'progress':
-    case 'settings':
-      return `#/${route.name}`;
-    default:
+    case 'home':
       return '#/';
+    default:
+      return `#/${route.name}`;
   }
 }
 

@@ -318,3 +318,6 @@ export const sidePlank: ExerciseAnimation = {
     },
   ],
 };
+
+/* Library additions (benches, machines, cables) live in their own file. */
+export * from './animations-library';

@@ -1,5 +1,5 @@
-import { type ArmPoints, type Figure, type LegPoints, type Vec, BODY, add, dir } from './skeleton';
-import type { DumbbellSpec, Prop, Timeline } from './timeline';
+import { type ArmPoints, type Figure, type LegPoints, type Vec, BODY, add, dir, scale } from './skeleton';
+import { type DumbbellSpec, type Prop, type Timeline, isDynamicProp } from './timeline';
 
 const NS = 'http://www.w3.org/2000/svg';
 
@@ -19,23 +19,20 @@ const pts = (...ps: Vec[]) => ps.map((p) => `${sx(p)},${sy(p)}`).join(' ');
 interface Box {
   x1: number;
   x2: number;
-  y1: number;
   y2: number;
 }
+const grow = (box: Box, p: Vec, pad = 0) => {
+  box.x1 = Math.min(box.x1, p.x - pad);
+  box.x2 = Math.max(box.x2, p.x + pad);
+  box.y2 = Math.max(box.y2, p.y + pad);
+};
 
 function figureBox(f: Figure, box: Box): void {
-  const all: Vec[] = [
+  for (const p of [
     f.hip, f.shoulder, f.armN.elbow, f.armN.hand, f.armF.elbow, f.armF.hand,
     f.legN.knee, f.legN.heel, f.legN.toe, f.legF.knee, f.legF.heel, f.legF.toe,
-  ];
-  for (const p of all) {
-    box.x1 = Math.min(box.x1, p.x);
-    box.x2 = Math.max(box.x2, p.x);
-    box.y2 = Math.max(box.y2, p.y);
-  }
-  box.x1 = Math.min(box.x1, f.head.x - BODY.headR);
-  box.x2 = Math.max(box.x2, f.head.x + BODY.headR);
-  box.y2 = Math.max(box.y2, f.head.y + BODY.headR);
+  ]) grow(box, p);
+  grow(box, f.head, BODY.headR);
 }
 
 function chairGeom(p: Extract<Prop, { kind: 'chair' }>) {
@@ -47,20 +44,35 @@ function chairGeom(p: Extract<Prop, { kind: 'chair' }>) {
 }
 
 function propBox(p: Prop, box: Box): void {
-  if (p.kind === 'chair') {
-    const g = chairGeom(p);
-    box.x1 = Math.min(box.x1, g.front, g.rear);
-    box.x2 = Math.max(box.x2, g.front, g.rear);
-    box.y2 = Math.max(box.y2, g.back);
-  } else {
-    box.x1 = Math.min(box.x1, p.x1);
-    box.x2 = Math.max(box.x2, p.x2);
+  switch (p.kind) {
+    case 'chair': {
+      const g = chairGeom(p);
+      grow(box, { x: g.front, y: g.back });
+      grow(box, { x: g.rear, y: g.back });
+      break;
+    }
+    case 'mat':
+    case 'step':
+      grow(box, { x: p.x1, y: 0 });
+      grow(box, { x: p.x2, y: p.kind === 'step' ? p.h : 0 });
+      break;
+    case 'lines':
+      p.paths.flat().forEach((v) => grow(box, v, 3));
+      break;
+    case 'circle':
+      grow(box, p.c, p.r);
+      break;
+    case 'cable':
+      grow(box, p.from, 4);
+      break;
+    default:
+      break; // body-attached props stay inside the figure's box
   }
 }
 
 /** A viewBox that fits the whole movement plus props, floor near the bottom, 4:3. */
 export function computeView(tl: Timeline): { x: number; y: number; w: number; h: number } {
-  const box: Box = { x1: Infinity, x2: -Infinity, y1: 0, y2: -Infinity };
+  const box: Box = { x1: Infinity, x2: -Infinity, y2: -Infinity };
   const steps = 60;
   for (let i = 0; i < steps; i++) figureBox(tl.sample((tl.duration * i) / steps).figure, box);
   for (const p of tl.anim.props) propBox(p, box);
@@ -74,23 +86,36 @@ export function computeView(tl: Timeline): { x: number; y: number; w: number; h:
   return { x: cx - w / 2, y: -(h - 10), w, h };
 }
 
-function drawProp(p: Prop, g: SVGGElement): void {
-  if (p.kind === 'chair') {
-    const c = chairGeom(p);
-    const legInset = Math.sign(c.rear - c.front) * 3;
-    el('path', {
-      class: 'prop',
-      d: [
-        `M${c.front},${-c.seat} L${c.rear},${-c.seat}`, // seat
-        `M${c.front + legInset},${-c.seat} L${c.front + legInset},0`, // front leg
-        `M${c.rear - legInset},${-c.seat} L${c.rear - legInset},0`, // back leg
-        `M${c.rear - legInset},${-c.seat} L${c.rear - legInset + Math.sign(c.rear - c.front) * 4},${-c.back}`, // backrest
-      ].join(' '),
-    }, g);
-  } else if (p.kind === 'mat') {
-    el('rect', { class: 'mat', x: p.x1, y: -2, width: p.x2 - p.x1, height: 2, rx: 1 }, g);
-  } else {
-    el('rect', { class: 'step', x: p.x1, y: -p.h, width: p.x2 - p.x1, height: p.h, rx: 1.5 }, g);
+function drawStaticProp(p: Prop, g: SVGGElement): void {
+  switch (p.kind) {
+    case 'chair': {
+      const c = chairGeom(p);
+      const legInset = Math.sign(c.rear - c.front) * 3;
+      el('path', {
+        class: 'prop',
+        d: [
+          `M${c.front},${-c.seat} L${c.rear},${-c.seat}`, // seat
+          `M${c.front + legInset},${-c.seat} L${c.front + legInset},0`, // front leg
+          `M${c.rear - legInset},${-c.seat} L${c.rear - legInset},0`, // back leg
+          `M${c.rear - legInset},${-c.seat} L${c.rear - legInset + Math.sign(c.rear - c.front) * 4},${-c.back}`, // backrest
+        ].join(' '),
+      }, g);
+      break;
+    }
+    case 'mat':
+      el('rect', { class: 'mat', x: p.x1, y: -2, width: p.x2 - p.x1, height: 2, rx: 1 }, g);
+      break;
+    case 'step':
+      el('rect', { class: 'step', x: p.x1, y: -p.h, width: p.x2 - p.x1, height: p.h, rx: 1.5 }, g);
+      break;
+    case 'lines':
+      for (const path of p.paths) el('polyline', { class: p.style === 'pad' ? 'pad' : 'prop', points: pts(...path) }, g);
+      break;
+    case 'circle':
+      el('circle', { class: p.style === 'pad' ? 'pad-round' : 'pulley', cx: sx(p.c), cy: sy(p.c), r: p.r }, g);
+      break;
+    default:
+      break;
   }
 }
 
@@ -98,6 +123,11 @@ interface LimbEls {
   line: SVGPolylineElement;
   end: SVGElement;
 }
+
+type DynamicEl =
+  | { prop: Extract<Prop, { kind: 'cable' }>; lines: SVGLineElement[] }
+  | { prop: Extract<Prop, { kind: 'footplate' }>; line: SVGLineElement }
+  | { prop: Extract<Prop, { kind: 'roller' }>; circle: SVGCircleElement };
 
 /** Renders one exercise. Call `update` with each sampled figure. */
 export class FigureView {
@@ -108,6 +138,7 @@ export class FigureView {
   private readonly neck: SVGLineElement;
   private readonly head: SVGCircleElement;
   private readonly bells: { spec: DumbbellSpec; g: SVGGElement }[] = [];
+  private readonly dynamic: DynamicEl[] = [];
 
   constructor(private readonly tl: Timeline, label: string) {
     const v = computeView(tl);
@@ -119,7 +150,21 @@ export class FigureView {
     });
     const props = el('g', {}, this.svg);
     el('line', { class: 'floor', x1: v.x, x2: v.x + v.w, y1: 0, y2: 0 }, props);
-    for (const p of tl.anim.props) drawProp(p, props);
+    for (const p of tl.anim.props) if (!isDynamicProp(p)) drawStaticProp(p, props);
+
+    // Body-attached props: behind the far limbs.
+    const dyn = el('g', { class: 'dyn' }, this.svg);
+    for (const p of tl.anim.props) {
+      if (p.kind === 'cable') {
+        el('circle', { class: 'pulley', cx: sx(p.from), cy: sy(p.from), r: 3.5 }, dyn);
+        const lines = p.to.map(() => el('line', { class: p.style === 'lever' ? 'lever' : `cable${p.depthHint ? ' dashed' : ''}` }, dyn));
+        this.dynamic.push({ prop: p, lines });
+      } else if (p.kind === 'footplate') {
+        this.dynamic.push({ prop: p, line: el('line', { class: 'plate' }, dyn) });
+      } else if (p.kind === 'roller') {
+        this.dynamic.push({ prop: p, circle: el('circle', { class: 'pad-round', r: p.r }, dyn) });
+      }
+    }
 
     const far = el('g', { class: 'far' }, this.svg);
     const mkLeg = (g: SVGGElement): LimbEls => ({
@@ -152,6 +197,9 @@ export class FigureView {
       if (spec.view === 'end') {
         el('circle', { class: 'plate', r: 7.5 }, g);
         el('circle', { class: 'hub', r: 2 }, g);
+      } else if (spec.view === 'handle') {
+        el('line', { class: 'handle', x1: -6, y1: 0, x2: 6, y2: 0 }, g);
+        el('circle', { class: 'plate', r: 3.6 }, g);
       } else {
         // Drawn along local "up"; rotated to the handle angle.
         el('line', { class: 'handle', x1: 0, y1: -9, x2: 0, y2: 9 }, g);
@@ -163,14 +211,14 @@ export class FigureView {
   }
 
   update(f: Figure): void {
-    this.torso.setAttribute('x1', sx(f.hip));
-    this.torso.setAttribute('y1', sy(f.hip));
-    this.torso.setAttribute('x2', sx(f.shoulder));
-    this.torso.setAttribute('y2', sy(f.shoulder));
-    this.neck.setAttribute('x1', sx(f.shoulder));
-    this.neck.setAttribute('y1', sy(f.shoulder));
-    this.neck.setAttribute('x2', sx(f.neckTop));
-    this.neck.setAttribute('y2', sy(f.neckTop));
+    const setLine = (l: SVGLineElement, a: Vec, b: Vec) => {
+      l.setAttribute('x1', sx(a));
+      l.setAttribute('y1', sy(a));
+      l.setAttribute('x2', sx(b));
+      l.setAttribute('y2', sy(b));
+    };
+    setLine(this.torso, f.hip, f.shoulder);
+    setLine(this.neck, f.shoulder, f.neckTop);
     this.head.setAttribute('cx', sx(f.head));
     this.head.setAttribute('cy', sy(f.head));
 
@@ -184,6 +232,26 @@ export class FigureView {
       this.arms[key].line.setAttribute('points', pts(a.root, a.elbow, a.wrist));
       this.arms[key].end.setAttribute('cx', sx(a.hand));
       this.arms[key].end.setAttribute('cy', sy(a.hand));
+    }
+    for (const d of this.dynamic) {
+      if ('lines' in d) d.prop.to.forEach((k, i) => setLine(d.lines[i]!, d.prop.from, f[k].hand));
+      else if ('line' in d) {
+        // A plate just under the sole, a little longer than the foot.
+        const { heel, toe } = f[d.prop.limb];
+        const along = { x: toe.x - heel.x, y: toe.y - heel.y };
+        const len = Math.hypot(along.x, along.y) || 1;
+        const u = scale(along, 1 / len);
+        const out = { x: u.y, y: -u.x }; // away from the sole
+        const a = add(add(heel, scale(u, -8)), scale(out, 2.5));
+        const b = add(add(toe, scale(u, 8)), scale(out, 2.5));
+        setLine(d.line, a, b);
+      } else {
+        const leg = f[d.prop.limb];
+        const shin = f.pose[d.prop.limb][1];
+        const c = add(add(leg.knee, scale({ x: leg.ankle.x - leg.knee.x, y: leg.ankle.y - leg.knee.y }, d.prop.along)), dir(shin + 90, d.prop.r + 3));
+        d.circle.setAttribute('cx', sx(c));
+        d.circle.setAttribute('cy', sy(c));
+      }
     }
     for (const { spec, g } of this.bells) {
       let pos: Vec;

@@ -1,12 +1,11 @@
 /** Pieces shared by several screens: back button, tab bar, week model, hero art. */
 import { FigureView } from '../anim/render';
 import { Timeline } from '../anim/timeline';
-import { WORKOUT_DAYS, type WorkoutId } from '../data/exercises';
 import { stepUp } from '../data/animations';
 import { h } from '../lib/dom';
 import { type IconName, icon } from '../lib/icons';
 import { TABS, back, goTab } from '../lib/router';
-import { load, localDate } from '../lib/storage';
+import { type WorkoutLog, load, localDate } from '../lib/storage';
 
 export function backButton(label = 'Back'): HTMLButtonElement {
   return h('button', { class: 'btn back-btn', type: 'button', onclick: () => back() }, icon('chevronLeft', 22), label);
@@ -23,7 +22,7 @@ export function cardTitle(iconName: IconName, text: string, id?: string): HTMLEl
 const TAB_INFO: Record<(typeof TABS)[number], { label: string; icon: IconName }> = {
   home: { label: 'Workouts', icon: 'home' },
   week: { label: 'This Week', icon: 'calendar' },
-  progress: { label: 'Progress', icon: 'chart' },
+  history: { label: 'History', icon: 'chart' },
 };
 
 export function tabBar(active: (typeof TABS)[number]): HTMLElement {
@@ -44,39 +43,39 @@ export function tabBar(active: (typeof TABS)[number]): HTMLElement {
 /* ---------------- Week model ---------------- */
 
 export const DAY_NAMES = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+export const WALK_TEXT = 'Walk 20–30 min';
 
 export interface DayInfo {
   name: string;
   date: Date;
   iso: string;
-  isWorkout: boolean;
   isToday: boolean;
   isPast: boolean;
-  workoutDone: WorkoutId | null;
+  isFuture: boolean;
+  workouts: WorkoutLog[];
   walkDone: boolean;
-  /** For lift days not yet done: the workout planned (alternating from the next one). */
-  planned: WorkoutId | null;
 }
 
+/** Monday–Sunday of the current week with what was done each day (no fixed plan). */
 export function weekDays(today = new Date()): DayInfo[] {
   const state = load();
   const monday = new Date(today);
   monday.setDate(today.getDate() - ((today.getDay() + 6) % 7));
   const todayIso = localDate(today);
-  let nextLetter: WorkoutId = state.next;
   return DAY_NAMES.map((name, i) => {
     const date = new Date(monday);
     date.setDate(monday.getDate() + i);
     const iso = localDate(date);
-    const isWorkout = WORKOUT_DAYS.includes(i);
-    const done = [...state.history].reverse().find((x) => x.date === iso)?.workout ?? null;
-    const isPast = iso < todayIso;
-    let planned: WorkoutId | null = null;
-    if (isWorkout && !done && !isPast) {
-      planned = nextLetter;
-      nextLetter = nextLetter === 'A' ? 'B' : 'A';
-    }
-    return { name, date, iso, isWorkout, isToday: iso === todayIso, isPast, workoutDone: done, walkDone: state.walks.includes(iso), planned };
+    return {
+      name,
+      date,
+      iso,
+      isToday: iso === todayIso,
+      isPast: iso < todayIso,
+      isFuture: iso > todayIso,
+      workouts: state.history.filter((x) => x.date === iso),
+      walkDone: state.walks.includes(iso),
+    };
   });
 }
 
