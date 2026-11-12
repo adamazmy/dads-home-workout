@@ -2,6 +2,7 @@ import { EXERCISES } from '../data/exercises';
 import { type Screen, h } from '../lib/dom';
 import { icon } from '../lib/icons';
 import { MAX_IMPORT_BYTES, exportData, importData, load, localDate } from '../lib/storage';
+import { describeSets } from '../lib/tracking';
 import { cardTitle, tabBar, weekDays } from './chrome';
 import { workoutSummary } from './week';
 
@@ -50,7 +51,7 @@ export function historyScreen(): Screen {
       'li',
       { class: 'log' },
       h('div', { class: 'log-head' }, h('b', {}, fmt(log.date)), h('span', { class: 'meta' }, workoutSummary(log))),
-      h('ul', { class: 'log-ex' }, ...log.exercises.map((e) => h('li', {}, `${EXERCISES[e.id].name} – ${e.sets} ${e.sets === 1 ? 'set' : 'sets'}`))),
+      h('ul', { class: 'log-ex' }, ...log.exercises.map((e) => h('li', {}, `${EXERCISES[e.id].name} – ${e.log ? describeSets(e.id, e.log) : `${e.sets} ${e.sets === 1 ? 'set' : 'sets'}`}`))),
     ),
   );
 

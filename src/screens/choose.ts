@@ -121,7 +121,7 @@ export function chooseScreen(): Screen {
     save({
       lastLocation: plan.location,
       draft: plan,
-      progress: { plan, phase: 'warmup', index: 0, set: 1, setsDone: plan.exercises.map(() => 0) },
+      progress: { plan, phase: 'warmup', index: 0, set: 1, setsDone: plan.exercises.map(() => 0), entries: plan.exercises.map(() => []) },
     });
     // Replace this screen, so back from the workout (or "Back to home") lands on Home.
     navigate({ name: 'workout' }, { replace: true });

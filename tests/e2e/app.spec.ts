@@ -200,8 +200,53 @@ test.describe('workout mode', () => {
 
     await page.getByRole('button', { name: 'History', exact: true }).click();
     await expect(page.locator('.logs > li')).toHaveCount(1);
-    await expect(page.locator('.logs')).toContainText('Goblet squat to a chair – 1 set');
+    await expect(page.locator('.logs')).toContainText('Goblet squat to a chair – 8 reps');
   });
+});
+
+test('records reps and weight per set, shows them in History, and pre-fills them next time', async ({ page }) => {
+  await seedState(page, { draft: DRAFT });
+  await page.goto('/');
+  await startWorkout(page);
+  const reps = page.getByRole('spinbutton', { name: 'reps', exact: true });
+  const kg = page.getByRole('spinbutton', { name: 'kg per dumbbell', exact: true });
+  await expect(reps).toHaveValue('8'); // bottom of 8–12 the first time
+  await expect(kg).toHaveValue('');
+  await page.getByRole('button', { name: 'More – reps' }).click();
+  await page.getByRole('button', { name: 'More – reps' }).click();
+  await kg.fill('6');
+  await kg.press('Enter');
+  await shot(page, 'record-set');
+  // "Set done" must be reachable without scrolling, steppers included.
+  await page.evaluate(() => window.scrollTo(0, 0));
+  const box = await page.getByRole('button', { name: 'Set done' }).boundingBox();
+  expect(box!.y + box!.height).toBeLessThanOrEqual(page.viewportSize()!.height);
+  await page.getByRole('button', { name: 'Set done' }).click();
+  await page.getByRole('button', { name: 'Skip rest' }).click();
+
+  // Set 2 starts from what was just done.
+  await expect(reps).toHaveValue('10');
+  await expect(kg).toHaveValue('6');
+  await page.getByRole('button', { name: 'Less – reps' }).click();
+  await page.getByRole('button', { name: 'Set done' }).click();
+  page.once('dialog', (d) => d.accept());
+  await page.getByRole('button', { name: 'Skip rest' }).click();
+  await page.getByRole('button', { name: 'Finish now' }).click();
+  await page.getByRole('button', { name: 'Back to home' }).click();
+
+  await page.getByRole('button', { name: 'History', exact: true }).click();
+  await expect(page.locator('.logs')).toContainText('Goblet squat to a chair – 10, 9 reps @ 6 kg');
+  await page.goto('/#/exercise/goblet');
+  await expect(page.getByRole('heading', { name: 'Your recent sets' })).toBeVisible();
+
+  // Next workout: last time is shown and pre-filled.
+  await seedState(page, { ...(await page.evaluate(() => JSON.parse(localStorage.getItem('dhw.state.v1')!))), draft: DRAFT });
+  await page.goto('/');
+  await startWorkout(page);
+  await expect(page.locator('.last-time')).toContainText('Last time: 10, 9 reps @ 6 kg');
+  await expect(page.getByText(/2 of 3 sets/)).toBeVisible();
+  await expect(reps).toHaveValue('10');
+  await expect(kg).toHaveValue('6');
 });
 
 test('history export / import round-trip', async ({ page }) => {

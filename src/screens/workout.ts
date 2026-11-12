@@ -3,9 +3,11 @@ import { restOver, unlockAudio } from '../lib/alerts';
 import { type Screen, h } from '../lib/dom';
 import { icon } from '../lib/icons';
 import { back, navigate } from '../lib/router';
-import { type Progress, finishWorkout, load, save } from '../lib/storage';
+import { type Progress, type SetEntry, finishWorkout, load, save } from '../lib/storage';
+import { describeSets, lastSets, makeEntry, prefill, progressionHint, trackingFor } from '../lib/tracking';
 import { keepScreenOn, releaseScreen } from '../lib/wakelock';
 import { type Stage, createStage } from './stage';
+import { stepper } from './stepper';
 
 const RING_R = 96;
 const RING_LEN = 2 * Math.PI * RING_R;
@@ -130,17 +132,58 @@ export function workoutScreen(): Screen {
     focusHeading();
   }
 
+  /** The values in the steppers, recorded when "Set done" is tapped. */
+  let current: SetEntry | null = null;
+
+  function recordCard(): HTMLElement {
+    const ex = list[pos.index]!;
+    const t = trackingFor(ex);
+    const { history } = load();
+    const pre = prefill(ex.id, pos.set - 1, pos.entries[pos.index] ?? [], history);
+    let amount = pre.amount;
+    let kg = pre.kg;
+    const sync = () => (current = makeEntry(t, amount, kg));
+    sync();
+    const last = lastSets(history, ex.id);
+    const hint = pos.set === 1 ? progressionHint(ex.id, last?.sets) : null;
+    return h(
+      'section',
+      { class: 'card record', 'aria-label': 'Record this set' },
+      h(
+        'div',
+        { class: 'record-row' },
+        stepper({ label: t.amountLabel, value: amount, step: t.amountStep, min: 0, max: t.amountMax, onChange: (v) => ((amount = v ?? 0), sync()) }),
+        t.load !== 'none'
+          ? stepper({
+              label: t.loadLabel,
+              value: kg,
+              step: t.loadStep,
+              min: 0,
+              max: t.loadMax,
+              startAt: t.load === 'stack' ? 10 : 2,
+              allowEmpty: true,
+              onChange: (v) => ((kg = v), sync()),
+            })
+          : null,
+      ),
+      last ? h('p', { class: 'last-time' }, h('b', {}, 'Last time: '), describeSets(ex.id, last.sets)) : null,
+      hint ? h('p', { class: 'legend' }, icon('info', 22), hint) : null,
+    );
+  }
+
   function showSet(): void {
     clear();
     updateBar();
     const ex = list[pos.index]!;
-    stage = createStage(ex);
+    // Compact demo here (full controls are on the "How to do it" page) so "Set done" fits on screen.
+    stage = createStage(ex, { compact: true });
     body.append(
       h('p', { class: 'kicker', style: 'text-align:center;margin:0' }, `Exercise ${pos.index + 1} of ${list.length} · ${groupName(ex.group)}`),
       h('h2', { tabindex: '-1', style: 'text-align:center' }, ex.name),
       stage.el,
       h('p', { class: 'set-count' }, `Set ${pos.set} of ${ex.sets}`),
-      h('p', { class: 'set-dose' }, ex.dose),
+      h('p', { class: 'set-dose' }, `Target: ${ex.dose}`),
+      recordCard(),
       h('button', { class: 'btn btn-primary btn-big', type: 'button', onclick: setDone }, icon('check', 32), 'Set done'),
       h(
         'div',
@@ -171,10 +214,12 @@ export function workoutScreen(): Screen {
     unlockAudio(); // a fresh user gesture keeps audio allowed
     const ex = list[pos.index]!;
     const setsDone = pos.setsDone.map((n, i) => (i === pos.index ? n + 1 : n));
-    if (pos.set < ex.sets) pos = { ...pos, set: pos.set + 1, setsDone };
-    else if (pos.index < list.length - 1) pos = { ...pos, index: pos.index + 1, set: 1, setsDone };
+    const entry = current ?? makeEntry(trackingFor(ex), 0, null);
+    const entries = pos.entries.map((e, i) => (i === pos.index ? [...e, entry] : e));
+    if (pos.set < ex.sets) pos = { ...pos, set: pos.set + 1, setsDone, entries };
+    else if (pos.index < list.length - 1) pos = { ...pos, index: pos.index + 1, set: 1, setsDone, entries };
     else {
-      pos = { ...pos, setsDone };
+      pos = { ...pos, setsDone, entries };
       return showDone();
     }
     persist();

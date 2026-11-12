@@ -9,7 +9,7 @@ export interface Stage {
 }
 
 /** Large animation with a phase label, play/pause and normal/half speed. */
-export function createStage(ex: Exercise): Stage {
+export function createStage(ex: Exercise, opts: { compact?: boolean } = {}): Stage {
   const phase = h('p', { class: 'phase', 'aria-live': 'off' });
   const player = new Player(ex.anim, {
     label: `Animation: ${ex.name}`,
@@ -46,8 +46,9 @@ export function createStage(ex: Exercise): Stage {
     { class: 'stage', 'aria-label': 'How it moves' },
     player.view.svg,
     phase,
-    h('div', { class: 'controls', role: 'group', 'aria-label': 'Animation controls' }, playBtn, normal, half),
+    opts.compact ? null : h('div', { class: 'controls', role: 'group', 'aria-label': 'Animation controls' }, playBtn, normal, half),
   );
+  if (opts.compact) el.classList.add('compact');
   return { el, player };
 }
 

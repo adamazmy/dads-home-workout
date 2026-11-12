@@ -1,6 +1,8 @@
 import { EQUIPMENT, EXERCISES, type ExerciseId, groupName, isExerciseId } from '../data/exercises';
 import { type Screen, h } from '../lib/dom';
 import { icon } from '../lib/icons';
+import { load } from '../lib/storage';
+import { describeSets } from '../lib/tracking';
 import { backButton, topbar } from './chrome';
 import { createStage } from './stage';
 
@@ -33,6 +35,21 @@ function tags(ex: (typeof EXERCISES)[ExerciseId]): HTMLElement {
   );
 }
 
+function recentCard(id: ExerciseId): HTMLElement | null {
+  const fmt = (iso: string) => new Date(iso).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
+  const rows = load()
+    .history.flatMap((log) => log.exercises.filter((e) => e.id === id && e.log?.length).map((e) => ({ at: log.at, text: describeSets(id, e.log!) })))
+    .slice(-3)
+    .reverse();
+  if (!rows.length) return null;
+  return h(
+    'section',
+    { class: 'card', 'aria-labelledby': 'recent-sets-h' },
+    h('h2', { id: 'recent-sets-h' }, 'Your recent sets'),
+    h('ul', { class: 'recent' }, ...rows.map((r) => h('li', {}, h('span', {}, fmt(r.at)), h('b', {}, r.text)))),
+  );
+}
+
 export function detailScreen(id: string): Screen | null {
   if (!isExerciseId(id)) return null; // own-property check: no prototype keys from the URL
   const ex = EXERCISES[id];
@@ -45,6 +62,7 @@ export function detailScreen(id: string): Screen | null {
     flagCard(ex.id),
     tags(ex),
     stage.el,
+    recentCard(ex.id),
     h(
       'section',
       { class: 'card' },

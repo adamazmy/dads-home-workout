@@ -696,3 +696,54 @@ ul.watch li::marker { color: var(--accent); }
 .log-head { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 12px; }
 .log-ex { margin: 6px 0 0; padding-left: 1.2rem; font-size: 0.9rem; color: var(--muted); }
 label.btn { cursor: pointer; }
+
+/* ================= Recording sets ================= */
+.record { padding: 14px; }
+.record-row { display: grid; gap: 12px; }
+.record-row:has(> .stepper + .stepper) { grid-template-columns: 1fr 1fr; gap: 8px; }
+.record-row:has(> .stepper + .stepper) .stepper { grid-template-columns: 50px 1fr 50px; gap: 4px; }
+.record-row:has(> .stepper + .stepper) .stepper-btn { width: 50px; height: 50px; }
+.record-row:has(> .stepper + .stepper) .stepper-value { font-size: 1.8rem; }
+.stepper { display: grid; grid-template-columns: var(--tap) 1fr var(--tap); align-items: center; gap: 8px; }
+.stepper-btn {
+  width: var(--tap);
+  height: var(--tap);
+  border-radius: 50%;
+  border: 2px solid var(--line);
+  background: var(--surface-2);
+  color: var(--text);
+  display: grid;
+  place-items: center;
+}
+.stepper-btn:disabled { opacity: 0.35; }
+.stepper-mid { display: flex; flex-direction: column; align-items: center; min-width: 0; }
+.stepper-value {
+  width: 100%;
+  max-width: 7ch;
+  border: none;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: 2.1rem;
+  font-weight: 900;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  padding: 0;
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+.stepper-value::-webkit-outer-spin-button,
+.stepper-value::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.stepper-value:focus-visible { outline: 3px solid var(--accent); border-radius: 10px; }
+.stepper-value::placeholder { color: var(--muted); }
+.stepper-label { color: var(--muted); font-size: 0.85rem; font-weight: 700; text-align: center; line-height: 1.2; }
+.last-time { margin: 12px 0 0; font-size: 0.95rem; }
+.record .legend { margin-top: 8px; }
+
+/* Workout mode: compact demo so the set controls and "Set done" fit on a phone screen. */
+.stage.compact { padding: 6px 6px 2px; margin-bottom: 8px; }
+.stage.compact svg.figure { max-height: 23vh; width: auto; max-width: 100%; margin: 0 auto; }
+.stage.compact .phase { min-height: 2.4em; margin: 4px 4px 2px; font-size: 1.05rem; }
+.set-count { font-size: 1.5rem; margin: 2px 0 0; }
+.set-dose { margin-bottom: 8px; }
+.record { margin-bottom: 10px; }

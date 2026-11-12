@@ -27,6 +27,7 @@ const progress = (over: Partial<Progress> = {}): Progress => ({
   index: 0,
   set: 2,
   setsDone: [1, 0],
+  entries: [[{ reps: 10, kg: 6 }], []],
   ...over,
 });
 
@@ -162,8 +163,8 @@ describe('untrusted saved state', () => {
 describe('finishing a workout', () => {
   it('saves only exercises with sets done, and clears progress and draft', () => {
     mod.save({ progress: progress(), draft: progress().plan });
-    const saved = mod.finishWorkout(progress({ setsDone: [3, 0] }), new Date('2026-03-04T10:00:00Z'));
-    expect(saved!.exercises).toEqual([{ id: 'goblet', sets: 3 }]);
+    const saved = mod.finishWorkout(progress({ setsDone: [3, 0], entries: [[{ reps: 10, kg: 6 }, { reps: 10, kg: 6 }, { reps: 9, kg: 6 }], []] }), new Date('2026-03-04T10:00:00Z'));
+    expect(saved!.exercises).toEqual([{ id: 'goblet', sets: 3, log: [{ reps: 10, kg: 6 }, { reps: 10, kg: 6 }, { reps: 9, kg: 6 }] }]);
     const s = mod.load();
     expect(s.history).toHaveLength(1);
     expect(s.progress).toBeNull();
@@ -171,7 +172,7 @@ describe('finishing a workout', () => {
   });
 
   it('saves nothing when no sets were done', () => {
-    expect(mod.finishWorkout(progress({ setsDone: [0, 0] }))).toBeNull();
+    expect(mod.finishWorkout(progress({ setsDone: [0, 0], entries: [[], []] }))).toBeNull();
     expect(mod.load().history).toEqual([]);
   });
 });

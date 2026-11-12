@@ -31,6 +31,15 @@ export interface Plan {
   exercises: ExerciseId[];
 }
 
+/** One recorded set: reps (or seconds / metres) and, for loaded exercises, kg. */
+export interface SetEntry {
+  reps?: number;
+  secs?: number;
+  m?: number;
+  /** Per dumbbell, or on the machine stack. */
+  kg?: number;
+}
+
 export interface Progress {
   plan: Plan;
   phase: 'warmup' | 'sets';
@@ -38,6 +47,8 @@ export interface Progress {
   set: number; // 1-based set about to be done
   /** Sets completed per exercise (parallel to plan.exercises). */
   setsDone: number[];
+  /** What was recorded for each completed set (parallel to plan.exercises). */
+  entries: SetEntry[][];
 }
 
 export interface WorkoutLog {
@@ -48,7 +59,8 @@ export interface WorkoutLog {
   at: string;
   location: Location;
   focus: Focus;
-  exercises: { id: ExerciseId; sets: number }[];
+  /** `log` holds the recorded sets; older workouts only have the set count. */
+  exercises: { id: ExerciseId; sets: number; log?: SetEntry[] }[];
 }
 
 export interface AppState {
@@ -106,6 +118,23 @@ export const validDate = (v: unknown): v is string => {
 const validInstant = (v: unknown): v is string =>
   typeof v === 'string' && v.length <= 40 && /^\d{4}-\d{2}-\d{2}T/.test(v) && Number.isFinite(Date.parse(v));
 
+const num = (v: unknown, lo: number, hi: number): v is number => typeof v === 'number' && Number.isFinite(v) && v >= lo && v <= hi;
+/** kg in 0.5 steps; reps / seconds / metres as whole numbers. */
+export function validEntry(v: unknown): SetEntry | null {
+  if (!record(v)) return null;
+  const e: SetEntry = {};
+  if (int(v.reps, 0, 200)) e.reps = v.reps;
+  if (int(v.secs, 0, 3600)) e.secs = v.secs;
+  if (int(v.m, 0, 2000)) e.m = v.m;
+  if (num(v.kg, 0, 500) && Number.isInteger(v.kg * 2)) e.kg = v.kg;
+  return e.reps === undefined && e.secs === undefined && e.m === undefined ? null : e;
+}
+const validEntries = (v: unknown): SetEntry[] | null => {
+  if (!Array.isArray(v) || v.length > 10) return null;
+  const out = v.map(validEntry);
+  return out.every((e): e is SetEntry => e !== null) ? out : null;
+};
+
 function validPlan(v: unknown): Plan | null {
   if (!record(v) || !isLocation(v.location) || !isFocus(v.focus) || !Array.isArray(v.exercises)) return null;
   // Reject rather than repair: dropping a bad id would shift every index after it.
@@ -129,7 +158,7 @@ function legacyProgress(v: Record<string, unknown>, useStepUps: boolean): Progre
   const set = v.set;
   const index = v.index;
   const setsDone = exercises.map((_, i) => (i === index ? set - 1 : 0));
-  return { plan: { location: 'home', focus: 'full', groups: [], exercises }, phase: 'sets', index, set, setsDone };
+  return { plan: { location: 'home', focus: 'full', groups: [], exercises }, phase: 'sets', index, set, setsDone, entries: exercises.map(() => []) };
 }
 
 function validProgress(v: unknown, useStepUps = false): Progress | null {
@@ -144,7 +173,10 @@ function validProgress(v: unknown, useStepUps = false): Progress | null {
     Array.isArray(v.setsDone) && v.setsDone.length === plan.exercises.length && v.setsDone.every((n) => int(n, 0, 10))
       ? (v.setsDone as number[])
       : plan.exercises.map(() => 0);
-  return { plan, phase: v.phase, index: v.index, set: v.set, setsDone: [...done] };
+  // Recorded sets: kept only if every list is valid and matches its set count.
+  const raw = Array.isArray(v.entries) && v.entries.length === plan.exercises.length ? v.entries.map(validEntries) : null;
+  const entries = raw && raw.every((e, i) => e !== null && e.length === done[i]) ? (raw as SetEntry[][]) : plan.exercises.map(() => []);
+  return { plan, phase: v.phase, index: v.index, set: v.set, setsDone: [...done], entries };
 }
 
 /** One history entry; accepts the current shape and the old `{ date, workout: 'A' | 'B' }`. */
@@ -164,8 +196,12 @@ export function validLog(v: unknown, i = 0): WorkoutLog | null {
     return null;
   }
   const exercises = v.exercises
-    .filter((e): e is { id: ExerciseId; sets: number } => record(e) && isExerciseId(e.id) && int(e.sets, 0, 10))
-    .map((e) => ({ id: e.id, sets: e.sets }))
+    .filter((e): e is { id: ExerciseId; sets: number; log?: unknown } => record(e) && isExerciseId(e.id) && int(e.sets, 0, 10))
+    .map((e) => {
+      const log = validEntries(e.log);
+      // A recorded log is only kept when it is fully valid and matches the set count.
+      return log && log.length === e.sets && log.length > 0 ? { id: e.id, sets: e.sets, log } : { id: e.id, sets: e.sets };
+    })
     .slice(0, 12);
   if (!exercises.length) return null;
   return { id: v.id, date: v.date, at: validInstant(v.at) ? v.at : `${v.date}T12:00:00.000Z`, location: v.location, focus: v.focus, exercises };
@@ -244,7 +280,13 @@ export const localDate = (d = new Date()): string => {
 
 /** Saves a finished (or ended-early) workout. Exercises with no sets done are left out. */
 export function finishWorkout(progress: Progress, now = new Date()): WorkoutLog | null {
-  const exercises = progress.plan.exercises.map((id, i) => ({ id, sets: progress.setsDone[i] ?? 0 })).filter((e) => e.sets > 0);
+  const exercises = progress.plan.exercises
+    .map((id, i) => {
+      const sets = progress.setsDone[i] ?? 0;
+      const log = progress.entries[i] ?? [];
+      return log.length === sets && sets > 0 ? { id, sets, log } : { id, sets };
+    })
+    .filter((e) => e.sets > 0);
   if (!exercises.length) {
     save({ progress: null });
     return null;

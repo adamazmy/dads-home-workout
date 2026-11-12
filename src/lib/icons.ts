@@ -17,6 +17,8 @@ const PATHS = {
   chevronRight: '<path d="M9 5l7 7-7 7"/>',
   chevronLeft: '<path d="M15 5l-7 7 7 7"/>',
   close: '<path d="M6 6l12 12M18 6L6 18"/>',
+  plus: '<path d="M12 5v14M5 12h14" stroke-width="3"/>',
+  minus: '<path d="M5 12h14" stroke-width="3"/>',
   flame: '<path d="M12 21c-3.9 0-6.5-2.6-6.5-6.2 0-3.6 2.8-5.6 3.7-9.3 2.3 1.4 3.3 3.4 3.3 5.4 1-.6 1.7-1.8 1.9-3 2.1 1.8 4.1 4.3 4.1 7 0 3.5-2.6 6.1-6.5 6.1z"/>',
   warning: '<path d="M12 3.5L22 20.5H2z"/><path d="M12 10v4.5M12 17.5v.01"/>',
 } as const;
