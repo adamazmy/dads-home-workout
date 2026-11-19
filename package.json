@@ -17,7 +17,7 @@
     "test:update": "playwright test -c playwright.update.config.ts"
   },
   "devDependencies": {
-    "@playwright/test": "^1.65.0",
+    "@playwright/test": "^1.65.1",
     "chrome-launcher": "^1.2.3",
     "lighthouse": "^13.6.0",
     "typescript": "^7.0.2",
